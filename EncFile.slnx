@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="src/EncFile.Cli/EncFile.Cli.csproj" />
+  <Project Path="src/EncFile.Lib/EncFile.Lib.csproj" />
+</Solution>
