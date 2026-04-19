@@ -266,9 +266,18 @@ public class TabOptions : ITabOptions
 			}
 			else
 			{
+				var enabledExtensions = tabOptionsDto.EnabledImageFileExtensions;
+
+				if (_globalParameters.ImageFileExtensions.Contains(".enc") &&
+					!enabledExtensions.Contains(
+						".enc", _globalParameters.ImageFileExtensionsComparer))
+				{
+					enabledExtensions.Add(".enc");
+				}
+
 				tabOptionsDto.EnabledImageFileExtensions = new HashSet<string>(
 				[
-					..tabOptionsDto.EnabledImageFileExtensions.Intersect(
+					..enabledExtensions.Intersect(
 						_globalParameters.ImageFileExtensions,
 						_globalParameters.ImageFileExtensionsComparer)
 				], _globalParameters.ImageFileExtensionsComparer);

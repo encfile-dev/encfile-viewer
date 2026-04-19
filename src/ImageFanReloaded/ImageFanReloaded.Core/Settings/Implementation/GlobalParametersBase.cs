@@ -53,6 +53,7 @@ public abstract class GlobalParametersBase : IGlobalParameters
 	public Key IKey { get; }
 	public Key UKey { get; }
 	public Key CKey { get; }
+	public Key LKey { get; }
 
 	public Key Digit1Key { get; }
 	public Key Digit2Key { get; }
@@ -155,6 +156,7 @@ public abstract class GlobalParametersBase : IGlobalParameters
 		IKey = Key.I;
 		UKey = Key.U;
 		CKey = Key.C;
+		LKey = Key.L;
 
 		Digit1Key = Key.Digit1;
 		Digit2Key = Key.Digit2;
@@ -225,7 +227,8 @@ public abstract class GlobalParametersBase : IGlobalParameters
 			".tga",
 			".tif", ".tiff",
 			".xbm",
-			".xpm"
+			".xpm",
+			".enc"
 		], ImageFileExtensionsComparer);
 
 		AnimationEnabledImageFileExtensions = new HashSet<string>(

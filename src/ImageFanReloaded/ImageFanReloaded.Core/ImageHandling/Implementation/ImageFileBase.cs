@@ -60,6 +60,10 @@ public abstract class ImageFileBase : IImageFile
 
 				SetImageProperties(image);
 			}
+			catch (UnauthorizedAccessException)
+			{
+				throw;
+			}
 			catch
 			{
 				image = GlobalParameters.InvalidImage;
@@ -162,6 +166,7 @@ public abstract class ImageFileBase : IImageFile
 	{
 		IImage? image = null;
 		IImage? thumbnail = null;
+		var shouldUpdateThumbnail = true;
 
 		if (HasImageReadError)
 		{
@@ -192,6 +197,12 @@ public abstract class ImageFileBase : IImageFile
 						image, thumbnailImageSize);
 				}
 			}
+			catch (UnauthorizedAccessException)
+			{
+				thumbnail = GlobalParameters.GetInvalidImageThumbnail(
+					thumbnailSize);
+				shouldUpdateThumbnail = false;
+			}
 			catch
 			{
 				thumbnail = GlobalParameters.GetInvalidImageThumbnail(
@@ -201,7 +212,7 @@ public abstract class ImageFileBase : IImageFile
 			}
 			finally
 			{
-				if (ShouldUpdateThumbnail(thumbnail))
+				if (shouldUpdateThumbnail && ShouldUpdateThumbnail(thumbnail))
 				{
 					_imageFileContentLogic.UpdateThumbnail(
 						ImageFileData,

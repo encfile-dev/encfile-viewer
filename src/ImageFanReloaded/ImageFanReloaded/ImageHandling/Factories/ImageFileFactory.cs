@@ -1,6 +1,8 @@
+using System;
 using ImageFanReloaded.Core.DiscAccess;
 using ImageFanReloaded.Core.ImageHandling;
 using ImageFanReloaded.Core.ImageHandling.Factories;
+using ImageFanReloaded.Core.Security;
 using ImageFanReloaded.Core.Settings;
 
 namespace ImageFanReloaded.ImageHandling.Factories;
@@ -13,7 +15,8 @@ public class ImageFileFactory : IImageFileFactory
 		IThumbnailCacheOptions thumbnailCacheOptions,
 		IFileSizeEngine fileSizeEngine,
 		IImageFileContentLogic imageFileContentLogic,
-		IImageFileContentLogic cachingEnabledImageFileContentLogic)
+		IImageFileContentLogic cachingEnabledImageFileContentLogic,
+		ISessionManager sessionManager)
 	{
 		_globalParameters = globalParameters;
 
@@ -28,6 +31,8 @@ public class ImageFileFactory : IImageFileFactory
 			thumbnailCacheOptions.EnableThumbnailCaching
 				? cachingEnabledImageFileContentLogic
 				: imageFileContentLogic;
+
+		_sessionManager = sessionManager;
 	}
 
 	public void EnableThumbnailCaching()
@@ -41,12 +46,25 @@ public class ImageFileFactory : IImageFileFactory
 	}
 
 	public IImageFile GetImageFile(ImageFileData imageFileData)
-		=> new ImageFile(
+	{
+		if (imageFileData.FileExtension.Equals(".enc", StringComparison.OrdinalIgnoreCase))
+		{
+			return new EncryptedImageFile(
+				_globalParameters,
+				_imageResizer,
+				_fileSizeEngine,
+				_activeImageFileContentLogic,
+				imageFileData,
+				_sessionManager);
+		}
+
+		return new ImageFile(
 			_globalParameters,
 			_imageResizer,
 			_fileSizeEngine,
 			_activeImageFileContentLogic,
 			imageFileData);
+	}
 
 	private readonly IGlobalParameters _globalParameters;
 
@@ -57,4 +75,6 @@ public class ImageFileFactory : IImageFileFactory
 	private readonly IImageFileContentLogic _cachingEnabledImageFileContentLogic;
 
 	private IImageFileContentLogic _activeImageFileContentLogic;
+
+	private readonly ISessionManager _sessionManager;
 }

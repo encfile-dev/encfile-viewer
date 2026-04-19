@@ -28,6 +28,7 @@ using ImageFanReloaded.Core.Synchronization.Implementation;
 using ImageFanReloaded.ImageHandling;
 using ImageFanReloaded.ImageHandling.Factories;
 using ImageFanReloaded.Mouse;
+using ImageFanReloaded.Core.Security;
 using ImageFanReloaded.Settings;
 
 namespace ImageFanReloaded;
@@ -58,6 +59,7 @@ public class AppBootstrap : IAppBootstrap
 	private IGlobalParameters _globalParameters = null!;
 	private ISettingsFactory _settingsFactory = null!;
 	private IMouseCursorFactory _mouseCursorFactory = null!;
+	private ISessionManager _sessionManager = null!;
 	private IFileSizeEngine _fileSizeEngine = null!;
 	private IDatabaseLogic _databaseLogic = null!;
 	private IThumbnailCacheOptions _thumbnailCacheOptions = null!;
@@ -81,6 +83,7 @@ public class AppBootstrap : IAppBootstrap
 
 		_settingsFactory = new SettingsFactory(_globalParameters);
 		_mouseCursorFactory = new MouseCursorFactory(_globalParameters);
+		_sessionManager = new SessionManager();
 
 		_fileSizeEngine = new FileSizeEngine();
 
@@ -109,7 +112,8 @@ public class AppBootstrap : IAppBootstrap
 			_thumbnailCacheOptions,
 			_fileSizeEngine,
 			cachedReadImageFileContentLogic,
-			cachedWriteImageFileContentLogic);
+			cachedWriteImageFileContentLogic,
+			_sessionManager);
 
 		IDiscQueryEngineFactory discQueryEngineFactory =
 			new DiscQueryEngineFactory(_globalParameters, _imageFileFactory);
@@ -117,7 +121,7 @@ public class AppBootstrap : IAppBootstrap
 
 		IScreenInfo screenInfo = new ScreenInfo();
 		_imageViewFactory = new ImageViewFactory(
-			_globalParameters, _mouseCursorFactory, screenInfo);
+			_globalParameters, _mouseCursorFactory, screenInfo, _sessionManager);
 
 		_inputPathHandlerFactory = new InputPathHandlerFactory(
 			_globalParameters);

@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using ImageFanReloaded.Core.ImageHandling;
 using ImageFanReloaded.Core.ImageHandling.Factories;
 using ImageFanReloaded.Core.Settings;
+using EncFile.Lib.Core;
 
 namespace ImageFanReloaded.Core.DiscAccess.Implementation;
 
@@ -296,8 +297,31 @@ public abstract class DiscQueryEngineBase : IDiscQueryEngine
 
 			var imageFileInfoList = folderInfo
 				.GetFiles("*", SearchOption.TopDirectoryOnly)
-				.Where(aFileInfo => enabledImageFileExtensions
-						.Contains(aFileInfo.Extension))
+				.Where(aFileInfo =>
+				{
+					if (!enabledImageFileExtensions.Contains(aFileInfo.Extension))
+					{
+						return false;
+					}
+
+					if (aFileInfo.Extension.Equals(
+						".enc", StringComparison.OrdinalIgnoreCase))
+					{
+						var meta = EncFile.Lib.Core.EncFile.PeekMetadata(
+							aFileInfo.FullName);
+
+						if (meta != null &&
+							meta.TryGetValue("mimeType", out var mimeType) &&
+							mimeType is string mimeStr)
+						{
+							return mimeStr.StartsWith("image/");
+						}
+
+						return true;
+					}
+
+					return true;
+				})
 				.ToList();
 
 			if (shouldApplyLocalOrdering)

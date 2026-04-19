@@ -2,6 +2,7 @@ using System;
 using ImageFanReloaded.Core.Controls;
 using ImageFanReloaded.Core.Controls.Factories;
 using ImageFanReloaded.Core.Mouse;
+using ImageFanReloaded.Core.Security;
 using ImageFanReloaded.Core.Settings;
 
 namespace ImageFanReloaded.Controls.Factories;
@@ -11,11 +12,13 @@ public class ImageViewFactory : IImageViewFactory
 	public ImageViewFactory(
 		IGlobalParameters globalParameters,
 		IMouseCursorFactory mouseCursorFactory,
-		IScreenInfo screenInfo)
+		IScreenInfo screenInfo,
+		ISessionManager sessionManager)
 	{
 		_globalParameters = globalParameters;
 		_mouseCursorFactory = mouseCursorFactory;
 		_screenInfo = screenInfo;
+		_sessionManager = sessionManager;
 	}
 
 	public IImageView GetImageView(ITabOptions tabOptions)
@@ -38,8 +41,8 @@ public class ImageViewFactory : IImageViewFactory
 		imageView.GlobalParameters = _globalParameters;
 		imageView.MouseCursorFactory = _mouseCursorFactory;
 		imageView.ScreenInfo = _screenInfo;
-
 		imageView.TabOptions = tabOptions;
+		imageView.SessionManager = _sessionManager;
 
 		return imageView;
 	}
@@ -47,4 +50,5 @@ public class ImageViewFactory : IImageViewFactory
 	private readonly IGlobalParameters _globalParameters;
 	private readonly IMouseCursorFactory _mouseCursorFactory;
 	private readonly IScreenInfo _screenInfo;
+	private readonly ISessionManager _sessionManager;
 }

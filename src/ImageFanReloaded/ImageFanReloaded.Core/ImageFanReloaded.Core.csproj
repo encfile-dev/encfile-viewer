@@ -5,4 +5,8 @@
 		<Product>ImageFan Reloaded - Core</Product>
 	</PropertyGroup>
 
+	<ItemGroup>
+		<ProjectReference Include="..\..\EncFile.Lib\EncFile.Lib.csproj" />
+	</ItemGroup>
+
 </Project>

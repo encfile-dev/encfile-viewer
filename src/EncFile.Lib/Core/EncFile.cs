@@ -202,6 +202,34 @@ namespace EncFile.Lib.Core
             }
         }
 
+        public static Dictionary<string, object>? PeekMetadata(string encFilePath)
+        {
+            using var stream = File.OpenRead(encFilePath);
+            if (stream.Length < 53) return null; // Header(20) + Crypto(29) + Len(4)
+
+            // Read & unpack header
+            var headerBuf = new byte[20];
+            stream.Read(headerBuf, 0, 20);
+            var header = HeaderPacking.UnpackHeader(headerBuf);
+
+            // Skip crypto params
+            stream.Seek(EncFileConstants.CRYPTO_SIZE, SeekOrigin.Current);
+
+            // Check if metadata exists
+            if ((header.Flags & 0x01) == 0) return null;
+
+            // Read metadata length (Big-Endian)
+            var lenBuf = new byte[4];
+            stream.Read(lenBuf, 0, 4);
+            uint metaLen = (uint)((lenBuf[0] << 24) | (lenBuf[1] << 16) | (lenBuf[2] << 8) | lenBuf[3]);
+            if (metaLen > EncFileConstants.METADATA_MAX_SIZE) return null;
+
+            // Read & parse JSON
+            var metaBytes = new byte[metaLen];
+            stream.Read(metaBytes, 0, (int)metaLen);
+            return JsonSerializer.Deserialize<Dictionary<string, object>>(Encoding.UTF8.GetString(metaBytes));
+        }
+
         // ---- Helpers ----
 
         private static void WriteUInt32BE(Stream stream, uint value)

@@ -40,6 +40,7 @@ public enum Key
 	I,
 	U,
 	C,
+	L,
 
 	Digit1,
 	Digit2,

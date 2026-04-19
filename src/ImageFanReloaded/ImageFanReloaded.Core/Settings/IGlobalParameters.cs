@@ -50,6 +50,7 @@ public interface IGlobalParameters
 	Key IKey { get; }
 	Key UKey { get; }
 	Key CKey { get; }
+	Key LKey { get; }
 
 	Key Digit1Key { get; }
 	Key Digit2Key { get; }

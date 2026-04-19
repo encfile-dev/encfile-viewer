@@ -95,7 +95,7 @@ public class ImageFile : ImageFileBase
 		return new Image(animatedImageFrames);
 	}
 
-	private IImage BuildIndirectlySupportedImageFromStream(
+	protected IImage BuildIndirectlySupportedImageFromStream(
 		Stream imageFileContentStream)
 	{
 		using IMagickImage image = new MagickImage(imageFileContentStream);
@@ -103,7 +103,7 @@ public class ImageFile : ImageFileBase
 		return BuildIndirectlySupportedImage(image);
 	}
 
-	private IImage BuildIndirectlySupportedImage(IMagickImage image)
+	protected IImage BuildIndirectlySupportedImage(IMagickImage image)
 	{
 		using var imageStream = new MemoryStream();
 		WriteImageToStream(image, imageStream, true);

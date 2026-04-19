@@ -3,6 +3,7 @@ using System.Threading.Tasks;
 using ImageFanReloaded.Core.CustomEventArgs;
 using ImageFanReloaded.Core.ImageHandling;
 using ImageFanReloaded.Core.Mouse;
+using ImageFanReloaded.Core.Security;
 using ImageFanReloaded.Core.Settings;
 
 namespace ImageFanReloaded.Core.Controls;
@@ -14,6 +15,8 @@ public interface IImageView
 
 	IScreenInfo? ScreenInfo { get; set; }
 	ITabOptions? TabOptions { get; set; }
+	ISessionManager? SessionManager { get; set; }
+	IMainView? Owner { get; set; }
 
 	bool IsStandaloneView { get; set; }
 

@@ -29,6 +29,7 @@
 	<ItemGroup>
 		<ProjectReference Include="../ImageFanReloaded.Caching/ImageFanReloaded.Caching.csproj" />
 		<ProjectReference Include="../ImageFanReloaded.Core/ImageFanReloaded.Core.csproj" />
+		<ProjectReference Include="../../EncFile.Lib/EncFile.Lib.csproj" />
 	</ItemGroup>
 
 	<ItemGroup>

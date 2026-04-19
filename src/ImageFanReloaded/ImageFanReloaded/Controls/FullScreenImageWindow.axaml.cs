@@ -1,4 +1,5 @@
 using System;
+using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
 using Avalonia;
@@ -6,10 +7,13 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
+using System.Text;
+using ImageFanReloaded.Controls.Security;
 using ImageFanReloaded.Core.Controls;
 using ImageFanReloaded.Core.CustomEventArgs;
 using ImageFanReloaded.Core.ImageHandling;
 using ImageFanReloaded.Core.Mouse;
+using ImageFanReloaded.Core.Security;
 using ImageFanReloaded.Core.Settings;
 using ImageFanReloaded.ImageHandling.Extensions;
 using ImageFanReloaded.Keyboard;
@@ -54,6 +58,8 @@ public partial class FullScreenImageWindow : Window, IImageView
 
 	public IScreenInfo? ScreenInfo { get; set; }
 	public ITabOptions? TabOptions { get; set; }
+	public ISessionManager? SessionManager { get; set; }
+	public IMainView? Owner { get; set; }
 
 	public bool IsStandaloneView { get; set; }
 
@@ -75,7 +81,11 @@ public partial class FullScreenImageWindow : Window, IImageView
 
 		_scaledScreenSize ??= ScreenInfo!.GetScaledScreenSize(this);
 
-		await DisplayResizedImage();
+		var displayed = await TryDisplayResizedImage();
+		if (!displayed)
+		{
+			return;
+		}
 
 		_negligibleImageDragX =
 			imageFile.ImageSize.Width * NegligibleImageDragFactor;
@@ -199,6 +209,10 @@ public partial class FullScreenImageWindow : Window, IImageView
 		else if (ShouldHandleEscapeAction(keyModifiers, keyPressing))
 		{
 			await HandleEscapeAction();
+		}
+		else if (ShouldLockSession(keyModifiers, keyPressing))
+		{
+			await HandleLockSession();
 		}
 		else if (ShouldShowMainViewAfterImageViewClosing(
 					keyModifiers, keyPressing))
@@ -387,6 +401,25 @@ public partial class FullScreenImageWindow : Window, IImageView
 		}
 
 		return false;
+	}
+
+	private bool ShouldLockSession(
+		ImageFanReloaded.Core.Keyboard.KeyModifiers keyModifiers,
+		ImageFanReloaded.Core.Keyboard.Key keyPressing)
+	{
+		if (keyModifiers == _globalParameters!.NoneKeyModifier &&
+			keyPressing == _globalParameters!.LKey)
+		{
+			return true;
+		}
+
+		return false;
+	}
+
+	private async Task HandleLockSession()
+	{
+		SessionManager?.ClearPassword();
+		await CloseWindow();
 	}
 
 	private bool ShouldShowMainViewAfterImageViewClosing(
@@ -652,6 +685,51 @@ public partial class FullScreenImageWindow : Window, IImageView
 			FullScreenImageViewState.ResizedToScreenSize;
 		Cursor = _screenSizeCursor!;
 	}
+
+	private async Task<bool> TryDisplayResizedImage()
+	{
+		while (true)
+		{
+			try
+			{
+				await DisplayResizedImage();
+				return true;
+			}
+			catch (Exception ex) when (IsPasswordFailure(ex))
+			{
+				if (!await PromptForPassword())
+				{
+					await CloseWindow();
+					return false;
+				}
+			}
+		}
+	}
+
+	private async Task<bool> PromptForPassword()
+	{
+		var passwordEntryWindow = new PasswordEntryWindow();
+		var dialogOwner = IsVisible ? this : (Window?)Owner;
+		var result = dialogOwner != null
+			? await passwordEntryWindow.ShowDialog<bool>(dialogOwner)
+			: await passwordEntryWindow.ShowDialog<bool>(this);
+
+		if (!result || string.IsNullOrEmpty(passwordEntryWindow.Password))
+		{
+			return false;
+		}
+
+		SessionManager!.SetPassword(
+			Encoding.UTF8.GetBytes(passwordEntryWindow.Password));
+
+		return true;
+	}
+
+	private static bool IsPasswordFailure(Exception ex)
+		=> ex is UnauthorizedAccessException ||
+		   ex is CryptographicException ||
+		   ex.InnerException is UnauthorizedAccessException ||
+		   ex.InnerException is CryptographicException;
 
 	private void ResizeToScreenSize()
 	{

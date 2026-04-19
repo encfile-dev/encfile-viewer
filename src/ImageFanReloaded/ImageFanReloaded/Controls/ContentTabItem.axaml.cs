@@ -699,6 +699,7 @@ public partial class ContentTabItem : UserControl, IContentTabItem
 	private async void DisplayImage(bool startSlideshow)
 	{
 		var imageView = ImageViewFactory!.GetImageView(TabOptions!);
+		imageView.Owner = MainView;
 
 		var selectedImageFile = GetSelectedImageFile();
 		await imageView.SetImage(selectedImageFile);
