@@ -5,6 +5,7 @@
     <Project Path="src/ImageFanReloaded/ImageFanReloaded.Test/ImageFanReloaded.Test.csproj" />
     <Project Path="src/ImageFanReloaded/ImageFanReloaded/ImageFanReloaded.csproj" />
   </Folder>
+  <Project Path="src/ComfyBlazorApp/ComfyBlazorApp.csproj" />
   <Project Path="src/EncFile.Cli/EncFile.Cli.csproj" />
   <Project Path="src/EncFile.Lib/EncFile.Lib.csproj" />
 </Solution>

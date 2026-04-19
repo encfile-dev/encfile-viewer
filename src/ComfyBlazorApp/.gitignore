@@ -1,0 +1,17 @@
+appsettings.Development.json
+
+wwwroot/lib/
+
+# ── Runtime data (user content, generated at startup — never commit) ──
+# SQLite database + WAL/SHM journal files
+data/prompts.db
+data/prompts.db-wal
+data/prompts.db-shm
+
+# User-uploaded and generated images
+data/prompt-images/
+data/source-images/
+
+# NOTE: Migrations/ is intentionally NOT ignored.
+# EF Core migrations are source code — they must be committed
+# so the app can create/migrate the database on any machine.

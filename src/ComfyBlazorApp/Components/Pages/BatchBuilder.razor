@@ -1,0 +1,189 @@
+@page "/batch"
+@rendermode InteractiveServer
+
+@implements IDisposable
+@inject PromptService PromptService
+@inject BatchService BatchService
+@inject BatchWorker BatchWorker
+
+<PageTitle>Batch Processing</PageTitle>
+
+<div class="batch-shell">
+
+    @* ── Builder panel ── *@
+    <div class="panel">
+        <div class="panel-header">
+            <div>
+                <p class="eyebrow">Build</p>
+                <h1>Batch Builder</h1>
+            </div>
+            <button id="btn-start-batch"
+                    class="action-button"
+                    disabled="@(SelectedIds.Count == 0 || IsSubmitting)"
+                    @onclick="StartBatchAsync">
+                @(IsSubmitting ? "Queuing…" : $"Run batch ({SelectedIds.Count})")
+            </button>
+        </div>
+        <p class="gallery-copy">Select presets from your library and run them sequentially. ComfyUI will process one image at a time.</p>
+
+        @if (!string.IsNullOrWhiteSpace(SubmitError))
+        {
+            <div class="panel alert-panel" style="margin-top:1rem"><p>@SubmitError</p></div>
+        }
+
+        @* ── Batch name  ── *@
+        <div style="margin-top:1rem">
+            <label class="field-label" for="batch-name">Batch name (optional)</label>
+            <input id="batch-name" class="input" style="max-width:26rem" @bind="BatchName" placeholder="My rendering run" />
+        </div>
+    </div>
+
+    @* ── Queue (selected order) ── *@
+    <div class="panel">
+        <div class="panel-header">
+            <div>
+                <p class="eyebrow">Queue</p>
+                <h2>Selected order</h2>
+            </div>
+            @if (SelectedIds.Count > 0)
+            {
+                <button class="secondary-button" @onclick="ClearSelection">Clear all</button>
+            }
+        </div>
+
+        @if (SelectedIds.Count == 0)
+        {
+            <div class="empty-state"><p>No presets selected yet. Pick some from the library below.</p></div>
+        }
+        else
+        {
+            <ol class="batch-queue-list">
+                @for (var i = 0; i < SelectedIds.Count; i++)
+                {
+                    var idx = i;
+                    var preset = AllPresets.FirstOrDefault(p => p.Id == SelectedIds[idx]);
+                    if (preset is null) continue;
+
+                    <li class="batch-queue-item" id="queue-item-@idx">
+                        <span class="batch-order-badge">@(idx + 1)</span>
+                        <span class="batch-queue-name">@preset.Name</span>
+                        <div class="batch-queue-actions">
+                            <button class="secondary-button btn-icon" @onclick="() => MoveUp(idx)" disabled="@(idx == 0)" title="Move up">↑</button>
+                            <button class="secondary-button btn-icon" @onclick="() => MoveDown(idx)" disabled="@(idx == SelectedIds.Count - 1)" title="Move down">↓</button>
+                            <button class="secondary-button btn-icon" @onclick="() => RemoveFromQueue(idx)" title="Remove">✕</button>
+                        </div>
+                    </li>
+                }
+            </ol>
+        }
+    </div>
+
+    @* ── Library picker ── *@
+    <div class="panel">
+        <div class="panel-header">
+            <div>
+                <p class="eyebrow">Library</p>
+                <h2>Pick presets</h2>
+            </div>
+            @if (AllPresets.Count > 0)
+            {
+                <span class="status-pill">@AllPresets.Count available</span>
+            }
+        </div>
+
+        @if (AllPresets.Count == 0)
+        {
+            <div class="empty-state">
+                <p>No presets in your library yet. <a href="/prompts">Create some first.</a></p>
+            </div>
+        }
+        else
+        {
+            <div class="preset-picker-grid">
+                @foreach (var preset in AllPresets)
+                {
+                    <button class="preset-picker-card @(SelectedIds.Contains(preset.Id) ? "preset-picker-selected" : "")"
+                            id="picker-@preset.Id"
+                            @onclick="() => TogglePreset(preset.Id)">
+                        @if (!string.IsNullOrWhiteSpace(preset.ImagePath) && File.Exists(preset.ImagePath))
+                        {
+                            <img class="picker-thumb" src="/preset-images/@Uri.EscapeDataString(Path.GetFileName(preset.ImagePath))" alt="@preset.Name" loading="lazy" />
+                        }
+                        else
+                        {
+                            <div class="picker-thumb-placeholder">🖼</div>
+                        }
+                        <span class="preset-name">@preset.Name</span>
+                        @if (SelectedIds.Contains(preset.Id))
+                        {
+                            <span class="picker-check">✓</span>
+                        }
+                    </button>
+                }
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    private List<PromptPreset> AllPresets { get; set; } = [];
+    private List<Guid> SelectedIds { get; set; } = [];
+    private string BatchName { get; set; } = string.Empty;
+    private bool IsSubmitting { get; set; }
+    private string? SubmitError { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        AllPresets = await PromptService.GetAllAsync();
+    }
+
+    private void TogglePreset(Guid id)
+    {
+        if (SelectedIds.Contains(id))
+            SelectedIds.Remove(id);
+        else
+            SelectedIds.Add(id);
+    }
+
+    private void ClearSelection() => SelectedIds.Clear();
+
+    private void MoveUp(int idx)
+    {
+        if (idx <= 0) return;
+        (SelectedIds[idx - 1], SelectedIds[idx]) = (SelectedIds[idx], SelectedIds[idx - 1]);
+    }
+
+    private void MoveDown(int idx)
+    {
+        if (idx >= SelectedIds.Count - 1) return;
+        (SelectedIds[idx], SelectedIds[idx + 1]) = (SelectedIds[idx + 1], SelectedIds[idx]);
+    }
+
+    private void RemoveFromQueue(int idx) => SelectedIds.RemoveAt(idx);
+
+    private async Task StartBatchAsync()
+    {
+        if (SelectedIds.Count == 0) return;
+        IsSubmitting = true;
+        SubmitError = null;
+
+        try
+        {
+            var name = string.IsNullOrWhiteSpace(BatchName) ? null : BatchName.Trim();
+            await BatchService.CreateBatchAsync(SelectedIds, name);
+            BatchWorker.SignalNewBatch();
+            SelectedIds.Clear();
+            BatchName = string.Empty;
+        }
+        catch (Exception ex)
+        {
+            SubmitError = ex.Message;
+        }
+        finally
+        {
+            IsSubmitting = false;
+        }
+    }
+
+    public void Dispose() { }
+}

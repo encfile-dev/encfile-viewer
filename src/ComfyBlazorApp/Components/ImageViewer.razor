@@ -1,0 +1,58 @@
+@if (Images.Count > 0 && SelectedIndex >= 0 && SelectedIndex < Images.Count)
+{
+    var image = Images[SelectedIndex];
+
+    <div class="viewer-backdrop" @onclick="CloseAsync">
+        <div class="viewer-shell" @onclick:stopPropagation="true">
+            <div class="viewer-toolbar">
+                <div>
+                    <p class="eyebrow">Fullscreen</p>
+                    <strong>@image.FileName</strong>
+                </div>
+                <div class="viewer-actions">
+                    <a class="viewer-link" href="@image.Url" target="_blank" rel="noreferrer">Open original</a>
+                    <button type="button" class="viewer-close" @onclick="CloseAsync">Close</button>
+                </div>
+            </div>
+
+            <div class="viewer-stage">
+                <button type="button" class="viewer-nav" @onclick="PreviousAsync" disabled="@(SelectedIndex == 0)">Prev</button>
+                <img src="@image.Url" alt="@image.FileName" />
+                <button type="button" class="viewer-nav" @onclick="NextAsync" disabled="@(SelectedIndex >= Images.Count - 1)">Next</button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter]
+    public required IReadOnlyList<GeneratedImage> Images { get; set; }
+
+    [Parameter]
+    public int SelectedIndex { get; set; } = -1;
+
+    [Parameter]
+    public EventCallback<int> SelectedIndexChanged { get; set; }
+
+    [Parameter]
+    public EventCallback OnClose { get; set; }
+
+    private Task PreviousAsync()
+    {
+        return SelectedIndex > 0
+            ? SelectedIndexChanged.InvokeAsync(SelectedIndex - 1)
+            : Task.CompletedTask;
+    }
+
+    private Task NextAsync()
+    {
+        return SelectedIndex < Images.Count - 1
+            ? SelectedIndexChanged.InvokeAsync(SelectedIndex + 1)
+            : Task.CompletedTask;
+    }
+
+    private Task CloseAsync()
+    {
+        return OnClose.InvokeAsync();
+    }
+}

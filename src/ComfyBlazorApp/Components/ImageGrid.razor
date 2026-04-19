@@ -1,0 +1,47 @@
+<div class="panel">
+    <div class="panel-header">
+        <div>
+            <p class="eyebrow">Gallery</p>
+            <h2>@Title</h2>
+        </div>
+        @if (Images.Count > 0)
+        {
+            <span class="status-pill">@Images.Count image@(Images.Count == 1 ? string.Empty : "s")</span>
+        }
+    </div>
+
+    @if (Images.Count == 0)
+    {
+        <div class="empty-state">
+            <p>@EmptyMessage</p>
+        </div>
+    }
+    else
+    {
+        <div class="image-grid">
+            @for (var i = 0; i < Images.Count; i++)
+            {
+                var image = Images[i];
+
+                <button type="button" class="image-card" @onclick="() => OnSelect.InvokeAsync(i)">
+                    <img src="@image.Url" alt="@image.FileName" loading="lazy" />
+                    <span>@image.FileName</span>
+                </button>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public required IReadOnlyList<GeneratedImage> Images { get; set; }
+
+    [Parameter]
+    public string Title { get; set; } = "Images";
+
+    [Parameter]
+    public string EmptyMessage { get; set; } = "No images yet.";
+
+    [Parameter]
+    public EventCallback<int> OnSelect { get; set; }
+}

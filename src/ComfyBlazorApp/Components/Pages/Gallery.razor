@@ -1,0 +1,134 @@
+@page "/gallery"
+@rendermode InteractiveServer
+
+@implements IAsyncDisposable
+@inject ImageService ImageService
+@inject IJSRuntime JSRuntime
+
+<PageTitle>Gallery</PageTitle>
+
+<div class="gallery-shell">
+    <div class="panel">
+        <div class="panel-header">
+            <div>
+                <p class="eyebrow">Browse</p>
+                <h1>Output gallery</h1>
+            </div>
+            <button type="button" class="secondary-button" @onclick="RefreshAsync">Refresh</button>
+        </div>
+        <p class="gallery-copy">The gallery watches the configured ComfyUI output folder, renders the newest images first, and opens each image in a PhotoSwipe fullscreen viewer.</p>
+    </div>
+
+    <div class="panel">
+        <div class="panel-header">
+            <div>
+                <p class="eyebrow">Gallery</p>
+                <h2>All outputs</h2>
+            </div>
+            @if (Images.Count > 0)
+            {
+                <span class="status-pill">@Images.Count image@(Images.Count == 1 ? string.Empty : "s")</span>
+            }
+        </div>
+
+        @if (Images.Count == 0)
+        {
+            <div class="empty-state">
+                <p>No images were found in the configured output folder.</p>
+            </div>
+        }
+        else
+        {
+            <div id="@GalleryElementId" class="image-grid photoswipe-grid">
+                @for (var i = 0; i < Images.Count; i++)
+                {
+                    var image = Images[i];
+
+                    <a href="@image.Url"
+                       class="image-card image-card-link"
+                       data-pswp-index="@i"
+                       data-pswp-width="@image.Width"
+                       data-pswp-height="@image.Height"
+                       rel="noreferrer">
+                        <img src="@image.Url" alt="@image.FileName" loading="lazy" />
+                        <span>@image.FileName</span>
+                    </a>
+                }
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    private const string GalleryElementId = "gallery-photoswipe";
+
+    private IReadOnlyList<GeneratedImage> Images { get; set; } = [];
+    private CancellationTokenSource? _pollingCts;
+    private IJSObjectReference? _module;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await RefreshAsync();
+        StartPolling();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        _module ??= await JSRuntime.InvokeAsync<IJSObjectReference>("import", "./js/galleryLightbox.js");
+        await _module.InvokeVoidAsync("syncGallery", GalleryElementId);
+    }
+
+    private async Task RefreshAsync()
+    {
+        Images = await ImageService.GetImagesAsync();
+    }
+
+    private void StartPolling()
+    {
+        _pollingCts = new CancellationTokenSource();
+        _ = PollAsync(_pollingCts.Token);
+    }
+
+    private async Task PollAsync(CancellationToken cancellationToken)
+    {
+        using var timer = new PeriodicTimer(TimeSpan.FromSeconds(5));
+
+        try
+        {
+            while (await timer.WaitForNextTickAsync(cancellationToken))
+            {
+                var isOpen = _module is not null
+                    && await _module.InvokeAsync<bool>("isGalleryOpen", GalleryElementId);
+
+                if (isOpen)
+                {
+                    continue;
+                }
+
+                await RefreshAsync();
+                await InvokeAsync(StateHasChanged);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        _pollingCts?.Cancel();
+        _pollingCts?.Dispose();
+
+        if (_module is not null)
+        {
+            try
+            {
+                await _module.InvokeVoidAsync("disposeGallery", GalleryElementId);
+                await _module.DisposeAsync();
+            }
+            catch (JSDisconnectedException)
+            {
+            }
+        }
+    }
+}

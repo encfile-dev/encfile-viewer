@@ -1,0 +1,27 @@
+@inherits LayoutComponentBase
+
+<div class="page">
+    <div class="sidebar">
+        <NavMenu />
+    </div>
+
+    <main>
+        <div class="top-row">
+            <div>
+                <p class="top-row-label">ComfyUI Blazor App</p>
+                <strong>Single-user generation console</strong>
+            </div>
+            <a href="https://www.comfy.org/" target="_blank" rel="noreferrer">ComfyUI</a>
+        </div>
+
+        <article class="content">
+            @Body
+        </article>
+    </main>
+</div>
+
+<div id="blazor-error-ui" data-nosnippet>
+    An unhandled error has occurred.
+    <a href="." class="reload">Reload</a>
+    <span class="dismiss">🗙</span>
+</div>

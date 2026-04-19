@@ -1,0 +1,467 @@
+@page "/edit-queue"
+@rendermode InteractiveServer
+
+@inject SourceImageService SourceImageService
+@inject PromptService PromptService
+@inject BatchService BatchService
+@inject BatchWorker BatchWorker
+@inject IWebHostEnvironment Env
+
+<PageTitle>Edit Queue</PageTitle>
+
+<div class="eq-shell">
+
+    @* ════════════════ LEFT COLUMN ════════════════ *@
+    <div class="eq-left">
+
+        @* ── Source Image panel ── *@
+        <div class="panel eq-panel">
+            <div class="panel-header">
+                <div>
+                    <p class="eyebrow">Input</p>
+                    <h1>Source Image</h1>
+                </div>
+                @if (SelectedImage is not null || UploadedImageBytes is not null)
+                {
+                    <span class="status-pill">✓ Selected</span>
+                }
+            </div>
+            <p class="gallery-copy">Pick the image you want to edit. All selected prompts will be applied to it sequentially.</p>
+
+            @* Tab switcher *@
+            <div class="mode-switch" role="tablist" style="margin-bottom:1.25rem">
+                <button type="button"
+                        class="mode-button @(ImageTab == "upload" ? "mode-button-active" : null)"
+                        @onclick='() => ImageTab = "upload"'>
+                    Upload from PC
+                </button>
+                <button type="button"
+                        class="mode-button @(ImageTab == "library" ? "mode-button-active" : null)"
+                        @onclick='() => { ImageTab = "library"; _ = LoadLibraryAsync(); }'>
+                    Image Library
+                </button>
+            </div>
+
+            @if (ImageTab == "upload")
+            {
+                @* ── Upload tab ── *@
+                <div class="eq-upload-zone">
+                    <div class="upload-icon">📂</div>
+                    <p>Choose an image from your computer</p>
+                    <InputFile id="eq-upload-input"
+                               OnChange="HandleFileUploadAsync"
+                               accept=".png,.jpg,.jpeg,.webp,image/*"
+                               class="eq-file-input" />
+                    <label for="eq-upload-input" class="action-button eq-upload-label">Browse file</label>
+                </div>
+
+                @if (UploadedImageBytes is not null)
+                {
+                    <div class="eq-selected-preview">
+                        <img src="@UploadedPreviewDataUrl" alt="@UploadedFileName" class="eq-preview-img" />
+                        <div class="eq-preview-meta">
+                            <strong>@UploadedFileName</strong>
+                            <p class="preset-meta">@FormatSize(UploadedImageBytes.Length)</p>
+                            <label class="eq-save-label">
+                                <input type="checkbox" @bind="SaveToLibrary" />
+                                Save to image library for future use
+                            </label>
+                        </div>
+                    </div>
+                }
+            }
+            else
+            {
+                @* ── Library tab ── *@
+                @if (IsLoadingLibrary)
+                {
+                    <div class="empty-state"><p>Loading library…</p></div>
+                }
+                else if (LibraryImages.Count == 0)
+                {
+                    <div class="empty-state">
+                        <p>No images in library yet. Upload one from the "Upload from PC" tab.</p>
+                    </div>
+                }
+                else
+                {
+                    <div class="eq-library-grid">
+                        @foreach (var img in LibraryImages)
+                        {
+                            <button class="eq-library-card @(SelectedImage?.Id == img.Id ? "eq-library-selected" : "")"
+                                    id="lib-img-@img.Id"
+                                    @onclick="() => SelectLibraryImage(img)">
+                                <img src="@img.PublicUrl" alt="@img.Name" class="eq-lib-thumb" loading="lazy" />
+                                <div class="eq-lib-meta">
+                                    <span class="preset-name" title="@img.OriginalFileName">@img.Name</span>
+                                    <span class="preset-meta">@img.HumanSize</span>
+                                </div>
+                                @if (SelectedImage?.Id == img.Id)
+                                {
+                                    <span class="picker-check">✓</span>
+                                }
+                            </button>
+                        }
+                    </div>
+
+                    @if (DeleteConfirmImageId.HasValue)
+                    {
+                        <div class="eq-delete-bar">
+                            <span>Delete "@(LibraryImages.FirstOrDefault(x => x.Id == DeleteConfirmImageId)?.Name)"?</span>
+                            <button class="danger-button" @onclick="ConfirmDeleteImageAsync">Yes, delete</button>
+                            <button class="secondary-button" @onclick="() => DeleteConfirmImageId = null">Cancel</button>
+                        </div>
+                    }
+                    else
+                    {
+                        <div style="margin-top:0.75rem;display:flex;gap:.5rem;flex-wrap:wrap">
+                            @foreach (var img in LibraryImages)
+                            {
+                                <button class="secondary-button" style="font-size:.78rem"
+                                        @onclick="() => DeleteConfirmImageId = img.Id">
+                                    Delete @img.Name
+                                </button>
+                            }
+                        </div>
+                    }
+                }
+            }
+        </div>
+
+        @* ── Prompt Selector panel ── *@
+        <div class="panel eq-panel">
+            <div class="panel-header">
+                <div>
+                    <p class="eyebrow">@(SelectedPresetIds.Count > 0 ? $"{SelectedPresetIds.Count} selected" : "None selected")</p>
+                    <h2>Select Prompts</h2>
+                </div>
+                @if (SelectedPresetIds.Count > 0)
+                {
+                    <button class="secondary-button" @onclick="() => SelectedPresetIds.Clear()">Clear</button>
+                }
+            </div>
+            <p class="gallery-copy">Choose one or more prompts. Each runs as a separate Edit job on the same source image.</p>
+
+            @if (AllPresets.Count == 0)
+            {
+                <div class="empty-state">
+                    <p>No presets yet. <a href="/prompts">Create some in Prompt Bank →</a></p>
+                </div>
+            }
+            else
+            {
+                <div class="preset-picker-grid">
+                    @foreach (var preset in AllPresets)
+                    {
+                        <button class="preset-picker-card @(SelectedPresetIds.Contains(preset.Id) ? "preset-picker-selected" : "")"
+                                id="eq-preset-@preset.Id"
+                                @onclick="() => TogglePreset(preset.Id)">
+                            <div class="picker-thumb-placeholder" style="font-size:1.4rem;aspect-ratio:unset;padding:.75rem 0">📝</div>
+                            <span class="preset-name">@preset.Name</span>
+                            @if (preset.TagList.Count > 0)
+                            {
+                                <span class="preset-quick-tag">@preset.TagList[0]</span>
+                            }
+                            @if (SelectedPresetIds.Contains(preset.Id))
+                            {
+                                <span class="picker-check">@(SelectedPresetIds.IndexOf(preset.Id) + 1)</span>
+                            }
+                        </button>
+                    }
+                </div>
+            }
+        </div>
+    </div>
+
+    @* ════════════════ RIGHT COLUMN ════════════════ *@
+    <div class="eq-right">
+
+        @* ── Queue summary panel ── *@
+        <div class="panel eq-sticky-panel">
+            <div class="panel-header">
+                <div>
+                    <p class="eyebrow">Ready to run</p>
+                    <h2>Edit Queue</h2>
+                </div>
+            </div>
+
+            @* Image summary *@
+            <div class="eq-summary-section">
+                <p class="eyebrow" style="margin-bottom:.35rem">Source image</p>
+                @if (HasSourceImage)
+                {
+                    <div class="eq-summary-image">
+                        <img src="@EffectivePreviewUrl" alt="source" class="eq-summary-thumb" />
+                        <div>
+                            <strong>@EffectiveImageName</strong>
+                            <p class="preset-meta">@EffectiveSizeLabel</p>
+                        </div>
+                    </div>
+                }
+                else
+                {
+                    <div class="empty-state" style="padding:.75rem"><p>No image selected</p></div>
+                }
+            </div>
+
+            @* Prompt list *@
+            <div class="eq-summary-section">
+                <p class="eyebrow" style="margin-bottom:.35rem">
+                    Prompts (@SelectedPresetIds.Count job@(SelectedPresetIds.Count == 1 ? "" : "s"))
+                </p>
+                @if (SelectedPresetIds.Count == 0)
+                {
+                    <div class="empty-state" style="padding:.75rem"><p>No prompts selected</p></div>
+                }
+                else
+                {
+                    <ol class="batch-queue-list">
+                        @for (var i = 0; i < SelectedPresetIds.Count; i++)
+                        {
+                            var idx = i;
+                            var preset = AllPresets.FirstOrDefault(p => p.Id == SelectedPresetIds[idx]);
+                            if (preset is null) continue;
+
+                            <li class="batch-queue-item">
+                                <span class="batch-order-badge">@(idx + 1)</span>
+                                <span class="batch-queue-name">@preset.Name</span>
+                                <div class="batch-queue-actions">
+                                    <button class="secondary-button btn-icon" @onclick="() => MovePresetUp(idx)" disabled="@(idx == 0)" title="Move up">↑</button>
+                                    <button class="secondary-button btn-icon" @onclick="() => MovePresetDown(idx)" disabled="@(idx == SelectedPresetIds.Count - 1)" title="Move down">↓</button>
+                                    <button class="secondary-button btn-icon" @onclick="() => SelectedPresetIds.RemoveAt(idx)" title="Remove">✕</button>
+                                </div>
+                            </li>
+                        }
+                    </ol>
+                }
+            </div>
+
+            @* Batch name *@
+            <div style="margin-top:1rem">
+                <label class="field-label" for="eq-batch-name">Batch name (optional)</label>
+                <input id="eq-batch-name" class="input" @bind="BatchName" placeholder="My edit run" />
+            </div>
+
+            @* Error *@
+            @if (!string.IsNullOrWhiteSpace(SubmitError))
+            {
+                <div class="panel alert-panel" style="margin-top:.75rem"><p>@SubmitError</p></div>
+            }
+
+            @* Start button *@
+            <div class="form-actions" style="margin-top:1.25rem">
+                <button id="btn-start-edit-queue"
+                        class="action-button"
+                        style="width:100%"
+                        disabled="@(!CanStart || IsSubmitting)"
+                        @onclick="StartEditQueueAsync">
+                    @if (IsSubmitting)
+                    {
+                        <span>Queuing…</span>
+                    }
+                    else if (!HasSourceImage)
+                    {
+                        <span>Select a source image first</span>
+                    }
+                    else if (SelectedPresetIds.Count == 0)
+                    {
+                        <span>Select at least one prompt</span>
+                    }
+                    else
+                    {
+                        <span>▶ Run @SelectedPresetIds.Count Edit job@(SelectedPresetIds.Count == 1 ? "" : "s")</span>
+                    }
+                </button>
+            </div>
+
+            @if (LastJobId.HasValue)
+            {
+                <div class="preset-apply-toast" style="margin-top:.75rem">
+                    ✓ Queued! <a href="/batch/monitor">View in monitor →</a>
+                </div>
+            }
+
+            <div style="margin-top:1rem">
+                <a class="secondary-link" style="width:100%;justify-content:center" href="/batch/monitor">
+                    Batch Monitor
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    // ── State ──────────────────────────────────────────────────────────
+    private string ImageTab { get; set; } = "upload";
+
+    // Upload from PC
+    private byte[]? UploadedImageBytes { get; set; }
+    private string? UploadedFileName { get; set; }
+    private string? UploadedContentType { get; set; }
+    private string? UploadedPreviewDataUrl { get; set; }
+    private bool SaveToLibrary { get; set; } = true;
+
+    // From library
+    private List<SourceImage> LibraryImages { get; set; } = [];
+    private SourceImage? SelectedImage { get; set; }
+    private bool IsLoadingLibrary { get; set; }
+    private Guid? DeleteConfirmImageId { get; set; }
+
+    // Prompts
+    private List<PromptPreset> AllPresets { get; set; } = [];
+    private List<Guid> SelectedPresetIds { get; set; } = [];
+
+    // Submit
+    private string BatchName { get; set; } = string.Empty;
+    private bool IsSubmitting { get; set; }
+    private string? SubmitError { get; set; }
+    private Guid? LastJobId { get; set; }
+
+    // ── Derived ────────────────────────────────────────────────────────
+    private bool HasSourceImage => SelectedImage is not null || UploadedImageBytes is not null;
+    private bool CanStart => HasSourceImage && SelectedPresetIds.Count > 0 && !IsSubmitting;
+
+    private string? EffectivePreviewUrl =>
+        SelectedImage is not null ? SelectedImage.PublicUrl : UploadedPreviewDataUrl;
+
+    private string EffectiveImageName =>
+        SelectedImage?.Name ?? UploadedFileName ?? "(none)";
+
+    private string EffectiveSizeLabel =>
+        SelectedImage is not null
+            ? SelectedImage.HumanSize
+            : UploadedImageBytes is not null ? FormatSize(UploadedImageBytes.Length) : "";
+
+    // ── Init ───────────────────────────────────────────────────────────
+    protected override async Task OnInitializedAsync()
+    {
+        AllPresets = await PromptService.GetAllAsync();
+        await LoadLibraryAsync();
+    }
+
+    private async Task LoadLibraryAsync()
+    {
+        IsLoadingLibrary = true;
+        LibraryImages = await SourceImageService.GetAllAsync();
+        IsLoadingLibrary = false;
+    }
+
+    // ── Image selection ────────────────────────────────────────────────
+    private async Task HandleFileUploadAsync(InputFileChangeEventArgs args)
+    {
+        const long MaxSize = 30 * 1024 * 1024;
+        var file = args.File;
+
+        await using var stream = file.OpenReadStream(MaxSize);
+        using var ms = new MemoryStream();
+        await stream.CopyToAsync(ms);
+
+        UploadedImageBytes = ms.ToArray();
+        UploadedFileName = file.Name;
+        UploadedContentType = file.ContentType;
+
+        // Generate data URL for preview
+        var base64 = Convert.ToBase64String(UploadedImageBytes);
+        var mime = string.IsNullOrWhiteSpace(UploadedContentType) ? "image/jpeg" : UploadedContentType;
+        UploadedPreviewDataUrl = $"data:{mime};base64,{base64}";
+
+        // Clear library selection when a new file is uploaded
+        SelectedImage = null;
+    }
+
+    private void SelectLibraryImage(SourceImage img)
+    {
+        SelectedImage = SelectedImage?.Id == img.Id ? null : img;
+        // Clear any uploaded file when choosing from library
+        UploadedImageBytes = null;
+        UploadedFileName = null;
+        UploadedPreviewDataUrl = null;
+    }
+
+    private async Task ConfirmDeleteImageAsync()
+    {
+        if (!DeleteConfirmImageId.HasValue) return;
+        if (SelectedImage?.Id == DeleteConfirmImageId) SelectedImage = null;
+        await SourceImageService.DeleteAsync(DeleteConfirmImageId.Value);
+        DeleteConfirmImageId = null;
+        await LoadLibraryAsync();
+    }
+
+    // ── Prompt selection ──────────────────────────────────────────────
+    private void TogglePreset(Guid id)
+    {
+        if (SelectedPresetIds.Contains(id))
+            SelectedPresetIds.Remove(id);
+        else
+            SelectedPresetIds.Add(id);
+    }
+
+    private void MovePresetUp(int idx)
+    {
+        if (idx <= 0) return;
+        (SelectedPresetIds[idx - 1], SelectedPresetIds[idx]) = (SelectedPresetIds[idx], SelectedPresetIds[idx - 1]);
+    }
+
+    private void MovePresetDown(int idx)
+    {
+        if (idx >= SelectedPresetIds.Count - 1) return;
+        (SelectedPresetIds[idx], SelectedPresetIds[idx + 1]) = (SelectedPresetIds[idx + 1], SelectedPresetIds[idx]);
+    }
+
+    // ── Start ──────────────────────────────────────────────────────────
+    private async Task StartEditQueueAsync()
+    {
+        if (!CanStart) return;
+        IsSubmitting = true;
+        SubmitError = null;
+        LastJobId = null;
+
+        try
+        {
+            string sourceImagePath;
+
+            if (SelectedImage is not null)
+            {
+                // Already in library
+                sourceImagePath = SelectedImage.FilePath;
+            }
+            else
+            {
+                // Save uploaded image to library (always — simplifies BatchWorker path handling)
+                await using var ms = new MemoryStream(UploadedImageBytes!, writable: false);
+                var saved = await SourceImageService.SaveAsync(ms, UploadedFileName!, Env.ContentRootPath);
+                sourceImagePath = saved.FilePath;
+
+                if (SaveToLibrary)
+                {
+                    // Reload library so it appears
+                    await LoadLibraryAsync();
+                }
+            }
+
+            var name = string.IsNullOrWhiteSpace(BatchName) ? null : BatchName.Trim();
+            var job = await BatchService.CreateEditBatchAsync(sourceImagePath, SelectedPresetIds, name);
+            BatchWorker.SignalNewBatch();
+
+            LastJobId = job.Id;
+            SelectedPresetIds.Clear();
+            BatchName = string.Empty;
+        }
+        catch (Exception ex)
+        {
+            SubmitError = ex.Message;
+        }
+        finally
+        {
+            IsSubmitting = false;
+        }
+    }
+
+    // ── Helpers ────────────────────────────────────────────────────────
+    private static string FormatSize(long bytes) => bytes switch
+    {
+        >= 1_048_576 => $"{bytes / 1_048_576.0:F1} MB",
+        >= 1_024 => $"{bytes / 1_024.0:F0} KB",
+        _ => $"{bytes} B"
+    };
+}

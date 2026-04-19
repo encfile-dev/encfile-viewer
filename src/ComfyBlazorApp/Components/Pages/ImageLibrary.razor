@@ -1,0 +1,318 @@
+@page "/image-library"
+@rendermode InteractiveServer
+
+@inject SourceImageService SourceImageService
+@inject IWebHostEnvironment Env
+
+<PageTitle>Image Library</PageTitle>
+
+<div class="prompt-bank-shell">
+
+    @* ── Header ── *@
+    <div class="panel">
+        <div class="panel-header">
+            <div>
+                <p class="eyebrow">Manage</p>
+                <h1>Image Library</h1>
+            </div>
+            <button id="btn-upload-image" class="action-button" @onclick="OpenUploader">+ Upload images</button>
+        </div>
+        <p class="gallery-copy">
+            Save source images here once and reuse them across any number of Edit Queue runs.
+            Images are stored locally in <code>data/source-images/</code>.
+        </p>
+    </div>
+
+    @* ── Upload panel (shown when uploader is open) ── *@
+    @if (UploaderOpen)
+    {
+        <div class="panel">
+            <div class="panel-header">
+                <div>
+                    <p class="eyebrow">Add</p>
+                    <h2>Upload new images</h2>
+                </div>
+                <button class="secondary-button" @onclick="CloseUploader">✕</button>
+            </div>
+
+            <div class="il-drop-zone">
+                <div class="upload-icon">📂</div>
+                <p>Select one or more images (PNG, JPEG, WebP)</p>
+                <InputFile id="il-file-input"
+                           OnChange="HandleFilesSelectedAsync"
+                           accept=".png,.jpg,.jpeg,.webp,image/*"
+                           multiple
+                           class="eq-file-input" />
+                <label for="il-file-input" class="action-button eq-upload-label">Browse files</label>
+            </div>
+
+            @* Pending uploads list *@
+            @if (PendingUploads.Count > 0)
+            {
+                <div class="il-pending-list">
+                    @foreach (var pending in PendingUploads)
+                    {
+                        <div class="il-pending-row" id="pending-@pending.Key">
+                            <img src="@pending.Value.PreviewUrl" alt="preview" class="il-pending-thumb" />
+                            <div class="il-pending-meta">
+                                <input class="input"
+                                       style="max-width:22rem"
+                                       placeholder="Name (leave blank to use filename)"
+                                       @bind="pending.Value.CustomName" />
+                                <p class="preset-meta">@pending.Value.OriginalFileName · @FormatSize(pending.Value.Bytes.Length)</p>
+                            </div>
+                            <button class="secondary-button btn-icon" @onclick="() => PendingUploads.Remove(pending.Key)" title="Remove">✕</button>
+                        </div>
+                    }
+                </div>
+
+                @if (!string.IsNullOrWhiteSpace(UploadError))
+                {
+                    <div class="panel alert-panel" style="margin-top:.75rem"><p>@UploadError</p></div>
+                }
+
+                <div class="form-actions" style="margin-top:1rem">
+                    <button id="btn-save-uploads"
+                            class="action-button"
+                            disabled="@IsSaving"
+                            @onclick="SaveAllAsync">
+                        @(IsSaving ? "Saving…" : $"Save {PendingUploads.Count} image{(PendingUploads.Count == 1 ? "" : "s")}")
+                    </button>
+                </div>
+            }
+        </div>
+    }
+
+    @* ── Image grid ── *@
+    <div class="panel">
+        <div class="panel-header">
+            <div>
+                <p class="eyebrow">Library</p>
+                <h2>Saved images</h2>
+            </div>
+            @if (Images.Count > 0)
+            {
+                <span class="status-pill">@Images.Count image@(Images.Count == 1 ? "" : "s")</span>
+            }
+        </div>
+
+        @if (IsLoading)
+        {
+            <div class="empty-state"><p>Loading…</p></div>
+        }
+        else if (Images.Count == 0)
+        {
+            <div class="empty-state">
+                <p>No images yet. Click <strong>+ Upload images</strong> to add some.</p>
+            </div>
+        }
+        else
+        {
+            <div class="il-image-grid">
+                @foreach (var img in Images)
+                {
+                    <div class="il-image-card" id="img-@img.Id">
+                        <div class="il-image-wrap">
+                            <img src="@img.PublicUrl" alt="@img.Name" class="il-image-thumb" loading="lazy" />
+                            <div class="il-image-overlay">
+                                <a class="il-overlay-btn" href="@img.PublicUrl" target="_blank" title="View full size">🔍</a>
+                            </div>
+                        </div>
+
+                        <div class="il-card-body">
+                            @if (RenamingId == img.Id)
+                            {
+                                <div class="il-rename-row">
+                                    <input class="input"
+                                           style="font-size:.88rem;padding:.45rem .75rem"
+                                           @bind="RenameValue"
+                                           @onkeydown="e => HandleRenameKeyAsync(e, img.Id)" />
+                                    <button class="secondary-button btn-icon" @onclick="() => CommitRenameAsync(img.Id)" title="Save">✓</button>
+                                    <button class="secondary-button btn-icon" @onclick="CancelRename" title="Cancel">✕</button>
+                                </div>
+                            }
+                            else
+                            {
+                                <strong class="il-image-name" title="@img.OriginalFileName">@img.Name</strong>
+                            }
+
+                            <p class="preset-meta">@img.HumanSize · @img.CreatedAt.ToLocalTime().ToString("d MMM yyyy")</p>
+
+                            <div class="preset-actions">
+                                <button class="secondary-button" style="font-size:.8rem" @onclick="() => StartRename(img)">Rename</button>
+
+                                @if (DeleteConfirmId == img.Id)
+                                {
+                                    <button class="danger-button" @onclick="() => ConfirmDeleteAsync(img.Id)">Confirm</button>
+                                    <button class="secondary-button" @onclick="() => DeleteConfirmId = null">Cancel</button>
+                                }
+                                else
+                                {
+                                    <button class="secondary-button" style="font-size:.8rem" @onclick="() => DeleteConfirmId = img.Id">Delete</button>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    // ── List state ─────────────────────────────────────────────────────
+    private List<SourceImage> Images { get; set; } = [];
+    private bool IsLoading { get; set; } = true;
+
+    // ── Uploader state ─────────────────────────────────────────────────
+    private bool UploaderOpen { get; set; }
+    private bool IsSaving { get; set; }
+    private string? UploadError { get; set; }
+
+    // Key = temp Guid, value = pending item
+    private Dictionary<Guid, PendingUpload> PendingUploads { get; set; } = [];
+
+    // ── Rename state ───────────────────────────────────────────────────
+    private Guid? RenamingId { get; set; }
+    private string RenameValue { get; set; } = string.Empty;
+
+    // ── Delete confirm ─────────────────────────────────────────────────
+    private Guid? DeleteConfirmId { get; set; }
+
+    // ── Init ───────────────────────────────────────────────────────────
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        IsLoading = true;
+        Images = await SourceImageService.GetAllAsync();
+        IsLoading = false;
+    }
+
+    // ── Uploader ────────────────────────────────────────────────────────
+    private void OpenUploader()
+    {
+        UploaderOpen = true;
+        PendingUploads.Clear();
+        UploadError = null;
+    }
+
+    private void CloseUploader()
+    {
+        UploaderOpen = false;
+        PendingUploads.Clear();
+        UploadError = null;
+    }
+
+    private async Task HandleFilesSelectedAsync(InputFileChangeEventArgs args)
+    {
+        const long MaxSize = 30 * 1024 * 1024;
+
+        foreach (var file in args.GetMultipleFiles(20))
+        {
+            await using var stream = file.OpenReadStream(MaxSize);
+            using var ms = new MemoryStream();
+            await stream.CopyToAsync(ms);
+
+            var bytes = ms.ToArray();
+            var base64 = Convert.ToBase64String(bytes);
+            var mime = string.IsNullOrWhiteSpace(file.ContentType) ? "image/jpeg" : file.ContentType;
+
+            PendingUploads[Guid.NewGuid()] = new PendingUpload
+            {
+                OriginalFileName = file.Name,
+                Bytes = bytes,
+                ContentType = mime,
+                PreviewUrl = $"data:{mime};base64,{base64}",
+                CustomName = Path.GetFileNameWithoutExtension(file.Name)
+            };
+        }
+    }
+
+    private async Task SaveAllAsync()
+    {
+        if (PendingUploads.Count == 0) return;
+        IsSaving = true;
+        UploadError = null;
+
+        try
+        {
+            foreach (var (_, pending) in PendingUploads)
+            {
+                await using var ms = new MemoryStream(pending.Bytes, writable: false);
+                var saved = await SourceImageService.SaveAsync(ms, pending.OriginalFileName, Env.ContentRootPath);
+
+                // Apply custom name if provided
+                var name = pending.CustomName?.Trim();
+                if (!string.IsNullOrWhiteSpace(name) && name != Path.GetFileNameWithoutExtension(pending.OriginalFileName))
+                {
+                    await SourceImageService.RenameAsync(saved.Id, name);
+                }
+            }
+
+            CloseUploader();
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            UploadError = ex.Message;
+        }
+        finally
+        {
+            IsSaving = false;
+        }
+    }
+
+    // ── Rename ──────────────────────────────────────────────────────────
+    private void StartRename(SourceImage img)
+    {
+        RenamingId = img.Id;
+        RenameValue = img.Name;
+        DeleteConfirmId = null;
+    }
+
+    private void CancelRename()
+    {
+        RenamingId = null;
+        RenameValue = string.Empty;
+    }
+
+    private async Task CommitRenameAsync(Guid id)
+    {
+        if (!string.IsNullOrWhiteSpace(RenameValue))
+            await SourceImageService.RenameAsync(id, RenameValue.Trim());
+        RenamingId = null;
+        await LoadAsync();
+    }
+
+    private async Task HandleRenameKeyAsync(KeyboardEventArgs e, Guid id)
+    {
+        if (e.Key == "Enter") await CommitRenameAsync(id);
+        else if (e.Key == "Escape") CancelRename();
+    }
+
+    // ── Delete ──────────────────────────────────────────────────────────
+    private async Task ConfirmDeleteAsync(Guid id)
+    {
+        await SourceImageService.DeleteAsync(id);
+        DeleteConfirmId = null;
+        await LoadAsync();
+    }
+
+    // ── Helpers ─────────────────────────────────────────────────────────
+    private static string FormatSize(long bytes) => bytes switch
+    {
+        >= 1_048_576 => $"{bytes / 1_048_576.0:F1} MB",
+        >= 1_024 => $"{bytes / 1_024.0:F0} KB",
+        _ => $"{bytes} B"
+    };
+
+    private sealed class PendingUpload
+    {
+        public string OriginalFileName { get; set; } = string.Empty;
+        public byte[] Bytes { get; set; } = [];
+        public string ContentType { get; set; } = string.Empty;
+        public string PreviewUrl { get; set; } = string.Empty;
+        public string? CustomName { get; set; }
+    }
+}

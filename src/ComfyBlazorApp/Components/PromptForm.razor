@@ -1,0 +1,105 @@
+<EditForm Model="Model" OnValidSubmit="HandleSubmit" class="panel prompt-panel">
+    <DataAnnotationsValidator />
+
+    <div class="panel-header">
+        <div>
+            <p class="eyebrow">Create</p>
+            <h1>Generate or edit an image</h1>
+        </div>
+        <span class="status-pill">ComfyUI live queue</span>
+    </div>
+
+    <div class="mode-switch" role="tablist" aria-label="Generation mode">
+        <button type="button" class="mode-button @(Model.Mode == GenerateMode.Generate ? "mode-button-active" : null)" @onclick="() => SetModeAsync(GenerateMode.Generate)">
+            Generate
+        </button>
+        <button type="button" class="mode-button @(Model.Mode == GenerateMode.Edit ? "mode-button-active" : null)" @onclick="() => SetModeAsync(GenerateMode.Edit)">
+            Edit
+        </button>
+    </div>
+
+    <div class="form-stack">
+        @if (Model.Mode == GenerateMode.Edit)
+        {
+            <div>
+                <label class="field-label" for="sourceImage">Source image</label>
+                <InputFile id="sourceImage" OnChange="HandleFileSelectedAsync" accept=".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp" />
+                <p class="field-hint">Upload a single PNG, JPEG, or WebP image. The app sends it to ComfyUI input storage before queueing the edit workflow.</p>
+                @if (!string.IsNullOrWhiteSpace(SelectedFileName))
+                {
+                    <p class="upload-chip">@SelectedFileName</p>
+                }
+            </div>
+        }
+
+        <div>
+            <label class="field-label" for="prompt">Prompt</label>
+            <InputTextArea id="prompt" class="input textarea" @bind-Value="Model.Prompt" />
+            <ValidationMessage For="() => Model.Prompt" />
+        </div>
+
+        <div>
+            <label class="field-label" for="negativePrompt">Negative prompt</label>
+            <InputTextArea id="negativePrompt" class="input textarea input-muted" @bind-Value="Model.NegativePrompt" />
+            <ValidationMessage For="() => Model.NegativePrompt" />
+        </div>
+
+        <div>
+            <label class="field-label" for="batchSize">Images</label>
+            <InputNumber id="batchSize" class="input input-small" @bind-Value="Model.BatchSize" />
+            <ValidationMessage For="() => Model.BatchSize" />
+        </div>
+    </div>
+
+    <div class="form-actions">
+        <button type="submit" class="action-button" disabled="@IsSubmitting">
+            @ButtonText
+        </button>
+    </div>
+</EditForm>
+
+@code {
+    [Parameter]
+    public required GenerateRequest Model { get; set; }
+
+    [Parameter]
+    public bool IsSubmitting { get; set; }
+
+    [Parameter]
+    public string? SelectedFileName { get; set; }
+
+    [Parameter]
+    public EventCallback<GenerateRequest> OnSubmit { get; set; }
+
+    [Parameter]
+    public EventCallback<GenerateMode> OnModeChanged { get; set; }
+
+    [Parameter]
+    public EventCallback<InputFileChangeEventArgs> OnFileSelected { get; set; }
+
+    private string ButtonText =>
+        IsSubmitting
+            ? (Model.Mode == GenerateMode.Edit ? "Queueing edit..." : "Queueing generation...")
+            : (Model.Mode == GenerateMode.Edit ? "Edit image" : "Generate image");
+
+    private Task HandleSubmit()
+    {
+        return OnSubmit.InvokeAsync(Model);
+    }
+
+    private Task SetModeAsync(GenerateMode mode)
+    {
+        if (Model.Mode == mode)
+        {
+            return Task.CompletedTask;
+        }
+
+        Model.Mode = mode;
+        return OnModeChanged.InvokeAsync(mode);
+    }
+
+    private Task HandleFileSelectedAsync(InputFileChangeEventArgs args)
+    {
+        return OnFileSelected.InvokeAsync(args);
+    }
+}

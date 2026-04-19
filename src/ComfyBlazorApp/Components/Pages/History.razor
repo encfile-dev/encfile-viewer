@@ -1,0 +1,311 @@
+@page "/history"
+@rendermode InteractiveServer
+
+@inject PromptHistoryService HistoryService
+@inject NavigationManager Nav
+@inject ComfyUiService ComfyUiService
+@inject JobService JobService
+
+<PageTitle>Prompt History</PageTitle>
+
+<div class="prompt-bank-shell">
+
+    @* ── Header ── *@
+    <div class="panel">
+        <div class="panel-header">
+            <div>
+                <p class="eyebrow">Your runs</p>
+                <h1>Prompt History</h1>
+            </div>
+            <div style="display:flex;gap:.75rem;align-items:center">
+                @if (Entries.Count > 0)
+                {
+                    @if (ConfirmClear)
+                    {
+                        <button class="danger-button" @onclick="DoClearAllAsync">Confirm clear all</button>
+                        <button class="secondary-button" @onclick="() => ConfirmClear = false">Cancel</button>
+                    }
+                    else
+                    {
+                        <button class="secondary-button" @onclick="() => ConfirmClear = true">Clear all</button>
+                    }
+                }
+            </div>
+        </div>
+        <p class="gallery-copy">
+            Every generation is recorded here. Click <strong>Edit &amp; Re-run</strong> to open it in the Generate page
+            with all fields pre-filled — then tweak and go.
+        </p>
+    </div>
+
+    @* ── Feedback toast ── *@
+    @if (!string.IsNullOrWhiteSpace(Toast))
+    {
+        <div class="preset-apply-toast">@Toast</div>
+    }
+
+    @* ── Timeline ── *@
+    @if (IsLoading)
+    {
+        <div class="panel"><div class="empty-state"><p>Loading…</p></div></div>
+    }
+    else if (Entries.Count == 0)
+    {
+        <div class="panel">
+            <div class="empty-state">
+                <p>No runs recorded yet. Go to <a href="/">Generate</a> and run something!</p>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="ph-timeline">
+            @foreach (var entry in Entries)
+            {
+                <div class="ph-entry" id="history-@entry.Id">
+                    @* Left: time + mode *@
+                    <div class="ph-entry-meta">
+                        <span class="ph-time">@entry.CreatedAt.ToLocalTime().ToString("HH:mm")</span>
+                        <span class="ph-date">@entry.CreatedAt.ToLocalTime().ToString("d MMM")</span>
+                        <span class="ph-mode-badge ph-mode-@entry.Mode.ToLower()">@entry.ModeLabel</span>
+                        @if (entry.BatchSize > 1)
+                        {
+                            <span class="ph-batch-badge">×@entry.BatchSize</span>
+                        }
+                    </div>
+
+                    @* Vertical line *@
+                    <div class="ph-line-col">
+                        <div class="ph-dot"></div>
+                        <div class="ph-vline"></div>
+                    </div>
+
+                    @* Right: content *@
+                    <div class="ph-entry-body">
+                        <p class="ph-prompt">@entry.PromptExcerpt()</p>
+
+                        @if (!string.IsNullOrWhiteSpace(entry.NegativePrompt))
+                        {
+                            <p class="ph-neg-prompt">– @entry.PromptExcerpt(60)</p>
+                        }
+
+                        @if (entry.IsEdit && !string.IsNullOrWhiteSpace(entry.SourceImagePath))
+                        {
+                            <p class="ph-source-hint">
+                                🖼 @Path.GetFileName(entry.SourceImagePath)
+                            </p>
+                        }
+
+                        <div class="ph-actions">
+                            <button class="action-button ph-rerun-btn"
+                                    id="edit-rerun-@entry.Id"
+                                    @onclick="() => EditAndReRun(entry)">
+                                ✏️ Edit &amp; Re-run
+                            </button>
+                            <button class="secondary-button ph-rerun-btn"
+                                    id="quick-rerun-@entry.Id"
+                                    disabled="@(QuickRunId == entry.Id)"
+                                    @onclick="() => QuickReRunAsync(entry)">
+                                @(QuickRunId == entry.Id ? "Queuing…" : "▶ Quick re-run")
+                            </button>
+                            <button class="secondary-button"
+                                    @onclick="() => SaveAsPresetId = entry.Id">
+                                ⭐ Save as preset
+                            </button>
+
+                            @if (DeleteConfirmId == entry.Id)
+                            {
+                                <button class="danger-button" @onclick="() => DeleteAsync(entry.Id)">Confirm delete</button>
+                                <button class="secondary-button" @onclick="() => DeleteConfirmId = null">Cancel</button>
+                            }
+                            else
+                            {
+                                <button class="secondary-button" @onclick="() => DeleteConfirmId = entry.Id">Delete</button>
+                            }
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@* ── Save as preset mini-modal ── *@
+@if (SaveAsPresetId.HasValue)
+{
+    var target = Entries.FirstOrDefault(e => e.Id == SaveAsPresetId);
+    if (target is not null)
+    {
+        <div class="modal-backdrop" @onclick="() => SaveAsPresetId = null">
+            <div class="modal-shell" @onclick:stopPropagation>
+                <div class="panel-header">
+                    <div><p class="eyebrow">Save</p><h2>Save as preset</h2></div>
+                    <button class="secondary-button" @onclick="() => SaveAsPresetId = null">✕</button>
+                </div>
+                <div class="form-stack">
+                    <div>
+                        <label class="field-label" for="preset-save-name">Preset name</label>
+                        <input id="preset-save-name" class="input" @bind="SavePresetName" placeholder="My style" />
+                    </div>
+                    <div>
+                        <label class="field-label">Prompt preview</label>
+                        <p class="preset-excerpt">@target.PromptExcerpt(200)</p>
+                    </div>
+                </div>
+                <div class="form-actions" style="margin-top:1rem">
+                    <button class="action-button"
+                            disabled="@IsSavingPreset"
+                            @onclick="() => DoSaveAsPresetAsync(target)">
+                        @(IsSavingPreset ? "Saving…" : "Save preset")
+                    </button>
+                </div>
+                @if (!string.IsNullOrWhiteSpace(SavePresetError))
+                {
+                    <div class="panel alert-panel" style="margin-top:.75rem"><p>@SavePresetError</p></div>
+                }
+            </div>
+        </div>
+    }
+}
+
+@code {
+    [Inject] private PromptService PromptService { get; set; } = null!;
+    [Inject] private IWebHostEnvironment Env { get; set; } = null!;
+
+    private List<PromptHistory> Entries { get; set; } = [];
+    private bool IsLoading { get; set; } = true;
+    private bool ConfirmClear { get; set; }
+    private Guid? DeleteConfirmId { get; set; }
+    private string? Toast { get; set; }
+    private CancellationTokenSource? _toastCts;
+
+    // Quick re-run
+    private Guid? QuickRunId { get; set; }
+
+    // Save as preset
+    private Guid? SaveAsPresetId { get; set; }
+    private string SavePresetName { get; set; } = string.Empty;
+    private bool IsSavingPreset { get; set; }
+    private string? SavePresetError { get; set; }
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        IsLoading = true;
+        Entries = await HistoryService.GetRecentAsync();
+        IsLoading = false;
+    }
+
+    // ── Actions ────────────────────────────────────────────────────────
+
+    private void EditAndReRun(PromptHistory entry)
+    {
+        // Navigate to Home with the history ID in the query string — Home.razor reads it and pre-fills
+        Nav.NavigateTo($"/?historyId={entry.Id}");
+    }
+
+    private async Task QuickReRunAsync(PromptHistory entry)
+    {
+        QuickRunId = entry.Id;
+        try
+        {
+            var request = new GenerateRequest
+            {
+                Prompt = entry.Prompt,
+                NegativePrompt = entry.NegativePrompt,
+                BatchSize = entry.BatchSize,
+                Mode = entry.IsEdit ? GenerateMode.Edit : GenerateMode.Generate
+            };
+
+            UploadedImageReference? imageRef = null;
+
+            if (entry.IsEdit && !string.IsNullOrWhiteSpace(entry.SourceImagePath) && File.Exists(entry.SourceImagePath))
+            {
+                await using var stream = File.OpenRead(entry.SourceImagePath);
+                imageRef = await ComfyUiService.UploadImageAsync(stream, Path.GetFileName(entry.SourceImagePath), null);
+            }
+
+            var promptId = await ComfyUiService.QueuePromptAsync(request, imageRef);
+            JobService.RegisterQueuedJob(promptId, request.BatchSize, request.Mode);
+
+            // Record in history
+            await HistoryService.AddAsync(entry.Prompt, entry.NegativePrompt, entry.Mode,
+                entry.BatchSize, entry.SourceImagePath, promptId);
+
+            ShowToast($"✓ Queued! Navigate to Generate to track progress.");
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            ShowToast($"Error: {ex.Message}");
+        }
+        finally
+        {
+            QuickRunId = null;
+        }
+    }
+
+    private async Task DeleteAsync(Guid id)
+    {
+        await HistoryService.DeleteAsync(id);
+        DeleteConfirmId = null;
+        await LoadAsync();
+    }
+
+    private async Task DoClearAllAsync()
+    {
+        await HistoryService.ClearAllAsync();
+        ConfirmClear = false;
+        await LoadAsync();
+        ShowToast("All history cleared.");
+    }
+
+    private async Task DoSaveAsPresetAsync(PromptHistory entry)
+    {
+        if (string.IsNullOrWhiteSpace(SavePresetName))
+        {
+            SavePresetError = "Name is required.";
+            return;
+        }
+
+        IsSavingPreset = true;
+        SavePresetError = null;
+
+        try
+        {
+            await PromptService.AddAsync(new PromptPreset
+            {
+                Name = SavePresetName.Trim(),
+                Prompt = entry.Prompt,
+                NegativePrompt = entry.NegativePrompt,
+                CreatedAt = DateTime.UtcNow
+            });
+
+            SaveAsPresetId = null;
+            SavePresetName = string.Empty;
+            ShowToast("✓ Saved as preset! View it in Prompt Bank.");
+        }
+        catch (Exception ex)
+        {
+            SavePresetError = ex.Message;
+        }
+        finally
+        {
+            IsSavingPreset = false;
+        }
+    }
+
+    private void ShowToast(string message)
+    {
+        Toast = message;
+        _toastCts?.Cancel();
+        _toastCts = new CancellationTokenSource();
+        var token = _toastCts.Token;
+        _ = Task.Delay(3000, token).ContinueWith(_ =>
+        {
+            if (!token.IsCancellationRequested)
+                InvokeAsync(() => { Toast = null; StateHasChanged(); });
+        }, TaskContinuationOptions.NotOnCanceled);
+    }
+}

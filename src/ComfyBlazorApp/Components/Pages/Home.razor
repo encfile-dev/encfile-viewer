@@ -1,0 +1,383 @@
+@page "/"
+@rendermode InteractiveServer
+
+@implements IDisposable
+@inject ComfyUiService ComfyUiService
+@inject JobService JobService
+@inject ImageService ImageService
+@inject PromptService PromptService
+@inject PromptHistoryService HistoryService
+
+<PageTitle>Generate</PageTitle>
+
+<div class="dashboard-shell">
+    <div class="dashboard-main">
+        <PromptForm
+            Model="Request"
+            IsSubmitting="IsSubmitting"
+            SelectedFileName="SelectedSourceFileName"
+            OnSubmit="HandleGenerateAsync"
+            OnModeChanged="HandleModeChangedAsync"
+            OnFileSelected="HandleFileSelectedAsync" />
+
+        @if (!string.IsNullOrWhiteSpace(ErrorMessage))
+        {
+            <div class="panel alert-panel">
+                <strong>Request failed.</strong>
+                <p>@ErrorMessage</p>
+            </div>
+        }
+
+        <div class="panel">
+            <div class="panel-header">
+                <div>
+                    <p class="eyebrow">Queue</p>
+                    <h2>Job activity</h2>
+                </div>
+            </div>
+
+            @if (Jobs.Count == 0)
+            {
+                <div class="empty-state">
+                    <p>No generation jobs yet.</p>
+                </div>
+            }
+            else
+            {
+                <div class="job-list">
+                    @foreach (var job in Jobs)
+                    {
+                        <article class="job-card">
+                            <div class="job-topline">
+                                <strong>@(job.Mode == GenerateMode.Edit ? "Edit" : "Generate") · @job.State</strong>
+                                @if (job.ProgressMax is > 0)
+                                {
+                                    <span>@job.ProgressPercent%</span>
+                                }
+                            </div>
+
+                            <p>@job.PromptId</p>
+
+                            @if (!string.IsNullOrWhiteSpace(job.SourceImageFileName))
+                            {
+                                <p>Source: @job.SourceImageFileName</p>
+                            }
+
+                            @if (!string.IsNullOrWhiteSpace(job.CurrentNode))
+                            {
+                                <p>Node: @job.CurrentNode</p>
+                            }
+
+                            @if (job.ProgressMax is > 0)
+                            {
+                                <div class="progress-rail" aria-label="Progress">
+                                    <div class="progress-bar" style="width: @(job.ProgressPercent)%"></div>
+                                </div>
+                                <p>@job.ProgressValue / @job.ProgressMax steps</p>
+                            }
+
+                            <div class="job-meta">
+                                <span>@job.OutputFiles.Count / @job.ExpectedImageCount images</span>
+                                <span>@job.StartedAt.ToLocalTime().ToString("g")</span>
+                            </div>
+
+                            @if (!string.IsNullOrWhiteSpace(job.Error))
+                            {
+                                <p class="job-error">@job.Error</p>
+                            }
+                        </article>
+                    }
+                </div>
+            }
+        </div>
+    </div>
+
+    <div class="dashboard-side">
+        <div class="panel stat-panel">
+            <p class="eyebrow">Config</p>
+            <h2>Output folder</h2>
+            <p>@ImageService.OutputDirectoryPath</p>
+        </div>
+
+        <div class="panel stat-panel">
+            <p class="eyebrow">Browse</p>
+            <h2>View outputs in gallery</h2>
+            <p>Use the Gallery page to open images in the fullscreen viewer and move between outputs.</p>
+            <a class="secondary-link" href="/gallery">Open gallery</a>
+        </div>
+
+        <div class="panel">
+            <div class="panel-header">
+                <div>
+                    <p class="eyebrow">Quick apply</p>
+                    <h2>Preset bank</h2>
+                </div>
+                <a class="secondary-link" href="/prompts" style="font-size:.85rem">Manage</a>
+            </div>
+
+            @if (PresetApplyFeedback is not null)
+            {
+                <div class="preset-apply-toast">@PresetApplyFeedback</div>
+            }
+
+            @if (Presets.Count == 0)
+            {
+                <div class="empty-state"><p>No presets yet. <a href="/prompts">Create one →</a></p></div>
+            }
+            else
+            {
+                <div class="preset-quick-list">
+                    @foreach (var preset in Presets)
+                    {
+                        var hasImage = !string.IsNullOrWhiteSpace(preset.ImagePath) && File.Exists(preset.ImagePath);
+
+                        <div class="preset-quick-row" id="quick-preset-@preset.Id">
+                            <div class="preset-quick-info">
+                                <span class="preset-quick-name">@preset.Name</span>
+                                @if (preset.TagList.Count > 0)
+                                {
+                                    <span class="preset-quick-tag">@preset.TagList[0]</span>
+                                }
+                                @if (hasImage)
+                                {
+                                    <span class="preset-has-image-badge" title="Has reference image">🖼</span>
+                                }
+                            </div>
+                            <div class="preset-quick-actions">
+                                <button class="preset-mode-btn preset-mode-generate"
+                                        title="Fill prompts and use Generate mode"
+                                        @onclick="() => ApplyPreset(preset, GenerateMode.Generate)">
+                                    Generate
+                                </button>
+                                <button class="preset-mode-btn preset-mode-edit"
+                                        title="@(hasImage ? "Fill prompts, load reference image, switch to Edit mode" : "Fill prompts and switch to Edit mode")"
+                                        @onclick="() => ApplyPresetForEditAsync(preset)">
+                                    @(hasImage ? "→ Edit 🖼" : "→ Edit")
+                                </button>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    private const long MaxUploadSize = 25 * 1024 * 1024;
+
+    private GenerateRequest Request { get; set; } = new();
+    private IReadOnlyList<JobStatus> Jobs { get; set; } = [];
+    private List<PromptPreset> Presets { get; set; } = [];
+    private bool IsSubmitting { get; set; }
+    private string? ErrorMessage { get; set; }
+    private string? SelectedSourceFileName { get; set; }
+    private string? SelectedSourceContentType { get; set; }
+    private byte[]? SelectedSourceImageBytes { get; set; }
+    private CancellationTokenSource? _pollingCts;
+
+    [SupplyParameterFromQuery] private string? HistoryId { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await RefreshAsync();
+        Presets = await PromptService.GetAllAsync();
+
+        // Pre-fill form if navigated from History page
+        if (Guid.TryParse(HistoryId, out var hid))
+        {
+            var hist = await HistoryService.GetByIdAsync(hid);
+            if (hist is not null)
+            {
+                Request.Prompt = hist.Prompt;
+                Request.NegativePrompt = hist.NegativePrompt;
+                Request.Mode = hist.IsEdit ? GenerateMode.Edit : GenerateMode.Generate;
+                Request.BatchSize = hist.BatchSize;
+            }
+        }
+
+        StartPolling();
+    }
+
+    private async Task HandleGenerateAsync(GenerateRequest request)
+    {
+        IsSubmitting = true;
+        ErrorMessage = null;
+
+        try
+        {
+            UploadedImageReference? uploadedImage = null;
+
+            if (request.Mode == GenerateMode.Edit)
+            {
+                if (SelectedSourceImageBytes is null || string.IsNullOrWhiteSpace(SelectedSourceFileName))
+                {
+                    throw new InvalidOperationException("Edit mode requires a source image.");
+                }
+
+                await using var stream = new MemoryStream(SelectedSourceImageBytes, writable: false);
+                uploadedImage = await ComfyUiService.UploadImageAsync(
+                    stream,
+                    SelectedSourceFileName,
+                    SelectedSourceContentType);
+            }
+
+            var promptId = await ComfyUiService.QueuePromptAsync(request, uploadedImage);
+            JobService.RegisterQueuedJob(promptId, request.BatchSize, request.Mode, uploadedImage?.Name ?? SelectedSourceFileName);
+
+            // Record in history (fire-and-forget — don't block the UI)
+            _ = HistoryService.AddAsync(
+                request.Prompt,
+                request.NegativePrompt,
+                request.Mode == GenerateMode.Edit ? "Edit" : "Generate",
+                request.BatchSize,
+                sourceImagePath: null,   // uploaded transiently; path not persisted for from-PC uploads
+                comfyPromptId: promptId);
+
+            if (request.Mode == GenerateMode.Edit)
+            {
+                ClearSelectedSourceImage();
+            }
+
+            await RefreshAsync();
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = ex.Message;
+        }
+        finally
+        {
+            IsSubmitting = false;
+        }
+    }
+
+    private Task HandleModeChangedAsync(GenerateMode mode)
+    {
+        if (mode == GenerateMode.Generate)
+        {
+            ClearSelectedSourceImage();
+        }
+
+        ErrorMessage = null;
+        return Task.CompletedTask;
+    }
+
+    private async Task HandleFileSelectedAsync(InputFileChangeEventArgs args)
+    {
+        var file = args.File;
+
+        await using var stream = file.OpenReadStream(MaxUploadSize);
+        using var memoryStream = new MemoryStream();
+        await stream.CopyToAsync(memoryStream);
+
+        SelectedSourceImageBytes = memoryStream.ToArray();
+        SelectedSourceFileName = file.Name;
+        SelectedSourceContentType = file.ContentType;
+        ErrorMessage = null;
+    }
+
+    private void ClearSelectedSourceImage()
+    {
+        SelectedSourceImageBytes = null;
+        SelectedSourceFileName = null;
+        SelectedSourceContentType = null;
+    }
+
+    private async Task RefreshAsync()
+    {
+        Jobs = JobService.GetJobs();
+    }
+
+    private string? PresetApplyFeedback { get; set; }
+    private CancellationTokenSource? _feedbackCts;
+
+    private void ApplyPreset(PromptPreset preset, GenerateMode mode)
+    {
+        Request.Prompt = preset.Prompt;
+        Request.NegativePrompt = preset.NegativePrompt;
+        Request.Mode = mode;
+        ErrorMessage = null;
+        _ = PromptService.TouchLastUsedAsync(preset.Id);
+        ShowFeedback($"✓ Applied \u201c{preset.Name}\u201d");
+    }
+
+    private async Task ApplyPresetForEditAsync(PromptPreset preset)
+    {
+        Request.Prompt = preset.Prompt;
+        Request.NegativePrompt = preset.NegativePrompt;
+        Request.Mode = GenerateMode.Edit;
+        ErrorMessage = null;
+
+        // Load the preset reference image as the Edit source image (if it has one)
+        if (!string.IsNullOrWhiteSpace(preset.ImagePath) && File.Exists(preset.ImagePath))
+        {
+            try
+            {
+                Request.Mode = GenerateMode.Edit;
+                SelectedSourceImageBytes = await File.ReadAllBytesAsync(preset.ImagePath);
+                SelectedSourceFileName = Path.GetFileName(preset.ImagePath);
+                SelectedSourceContentType = preset.ImagePath.ToLowerInvariant() switch
+                {
+                    var p when p.EndsWith(".png")  => "image/png",
+                    var p when p.EndsWith(".webp") => "image/webp",
+                    _                              => "image/jpeg"
+                };
+                ShowFeedback($"✓ Applied \u201c{preset.Name}\u201d + reference image loaded");
+            }
+            catch
+            {
+                ShowFeedback($"✓ Applied \u201c{preset.Name}\u201d (image load failed)");
+            }
+        }
+        else
+        {
+            ShowFeedback($"✓ Applied \u201c{preset.Name}\u201d — switched to Edit mode");
+        }
+
+        _ = PromptService.TouchLastUsedAsync(preset.Id);
+    }
+
+    private void ShowFeedback(string message)
+    {
+        PresetApplyFeedback = message;
+        _feedbackCts?.Cancel();
+        _feedbackCts = new CancellationTokenSource();
+        var token = _feedbackCts.Token;
+        _ = Task.Delay(2500, token).ContinueWith(_ =>
+        {
+            if (!token.IsCancellationRequested)
+            {
+                InvokeAsync(() => { PresetApplyFeedback = null; StateHasChanged(); });
+            }
+        }, TaskContinuationOptions.NotOnCanceled);
+    }
+
+    private void StartPolling()
+    {
+        _pollingCts = new CancellationTokenSource();
+        _ = PollAsync(_pollingCts.Token);
+    }
+
+    private async Task PollAsync(CancellationToken cancellationToken)
+    {
+        using var timer = new PeriodicTimer(TimeSpan.FromSeconds(2));
+
+        try
+        {
+            while (await timer.WaitForNextTickAsync(cancellationToken))
+            {
+                await RefreshAsync();
+                await InvokeAsync(StateHasChanged);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+        }
+    }
+
+    public void Dispose()
+    {
+        _pollingCts?.Cancel();
+        _pollingCts?.Dispose();
+    }
+}

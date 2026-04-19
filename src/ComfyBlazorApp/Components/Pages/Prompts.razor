@@ -1,0 +1,349 @@
+@page "/prompts"
+@rendermode InteractiveServer
+
+@inject PromptService PromptService
+@inject NavigationManager Nav
+
+<PageTitle>Prompt Bank</PageTitle>
+
+<div class="prompt-bank-shell">
+    <div class="panel">
+        <div class="panel-header">
+            <div>
+                <p class="eyebrow">Manage</p>
+                <h1>Prompt Bank</h1>
+            </div>
+            <button id="btn-new-preset" class="action-button" @onclick="OpenNew">+ New preset</button>
+        </div>
+        <p class="gallery-copy">Store, tag and reuse your favourite prompts. Apply any preset directly from the Generate page.</p>
+    </div>
+
+    @* ── Tag filter ── *@
+    <div class="panel filter-bar">
+        <label class="field-label" for="tag-filter">Filter by tag</label>
+        <div class="filter-row">
+            <input id="tag-filter"
+                   class="input"
+                   placeholder="e.g. portrait, landscape…"
+                   @bind="TagFilter"
+                   @bind:event="oninput"
+                   @onkeyup="LoadPresetsAsync" />
+            @if (!string.IsNullOrWhiteSpace(TagFilter))
+            {
+                <button class="secondary-button" @onclick="ClearFilter">Clear</button>
+            }
+        </div>
+    </div>
+
+    @* ── Preset list ── *@
+    <div class="panel">
+        <div class="panel-header">
+            <div>
+                <p class="eyebrow">Library</p>
+                <h2>All presets</h2>
+            </div>
+            @if (Presets.Count > 0)
+            {
+                <span class="status-pill">@Presets.Count preset@(Presets.Count == 1 ? "" : "s")</span>
+            }
+        </div>
+
+        @if (IsLoading)
+        {
+            <div class="empty-state"><p>Loading…</p></div>
+        }
+        else if (Presets.Count == 0)
+        {
+            <div class="empty-state">
+                <p>@(string.IsNullOrWhiteSpace(TagFilter) ? "No presets yet. Create your first one!" : "No presets match that tag.")</p>
+            </div>
+        }
+        else
+        {
+            <div class="preset-grid">
+                @foreach (var preset in Presets)
+                {
+                    <article class="preset-card" id="preset-@preset.Id">
+                        @if (!string.IsNullOrWhiteSpace(preset.ImagePath) && File.Exists(preset.ImagePath))
+                        {
+                            var imgFile = Path.GetFileName(preset.ImagePath);
+                            <img class="preset-thumb" src="/preset-images/@Uri.EscapeDataString(imgFile)" alt="@preset.Name" loading="lazy" />
+                        }
+                        else
+                        {
+                            <div class="preset-thumb-placeholder">🖼</div>
+                        }
+
+                        <div class="preset-card-body">
+                            <strong class="preset-name">@preset.Name</strong>
+                            <p class="preset-excerpt">@Truncate(preset.Prompt, 100)</p>
+
+                            @if (preset.TagList.Count > 0)
+                            {
+                                <div class="tag-row">
+                                    @foreach (var tag in preset.TagList)
+                                    {
+                                        <span class="tag-chip">@tag</span>
+                                    }
+                                </div>
+                            }
+
+                            <p class="preset-meta">
+                                Created @preset.CreatedAt.ToLocalTime().ToString("d MMM yyyy")
+                                @if (preset.LastUsedAt.HasValue)
+                                {
+                                    <span> · Used @preset.LastUsedAt.Value.ToLocalTime().ToString("d MMM yyyy")</span>
+                                }
+                            </p>
+
+                            <div class="preset-actions">
+                                <button class="secondary-button" @onclick="() => OpenEdit(preset)"
+                                        id="edit-@preset.Id">
+                                    <i class="bi bi-pencil"></i> Edit
+                                </button>
+                                <button class="secondary-button preset-clone-btn" @onclick="() => OpenClone(preset)"
+                                        id="clone-@preset.Id" title="Clone this preset">
+                                    <i class="bi bi-copy"></i> Clone
+                                </button>
+                                @if (DeleteConfirmId == preset.Id)
+                                {
+                                    <button class="danger-button" @onclick="() => ConfirmDeleteAsync(preset.Id)">
+                                        <i class="bi bi-trash-fill"></i> Confirm delete
+                                    </button>
+                                    <button class="secondary-button" @onclick="CancelDelete">
+                                        <i class="bi bi-x-circle"></i> Cancel
+                                    </button>
+                                }
+                                else
+                                {
+                                    <button class="secondary-button" @onclick="() => RequestDelete(preset.Id)">
+                                        <i class="bi bi-trash"></i> Delete
+                                    </button>
+                                }
+                            </div>
+                        </div>
+                    </article>
+                }
+            </div>
+        }
+    </div>
+</div>
+
+@* ── Modal ── *@
+@if (ModalOpen)
+{
+    <div class="modal-backdrop" @onclick="CloseModal">
+        <div class="modal-shell" @onclick:stopPropagation>
+            <div class="panel-header">
+                <div>
+                    <p class="eyebrow">
+                        @if (IsCloning)       { <text>Clone</text> }
+                        else if (EditingPreset?.Id == Guid.Empty) { <text>Create</text> }
+                        else                   { <text>Edit</text> }
+                    </p>
+                    <h2>
+                        @if (IsCloning)       { <text>Clone preset</text> }
+                        else if (EditingPreset?.Id == Guid.Empty) { <text>New preset</text> }
+                        else                   { <text>Edit preset</text> }
+                    </h2>
+                </div>
+                <button class="secondary-button" @onclick="CloseModal">✕</button>
+            </div>
+
+            @if (!string.IsNullOrWhiteSpace(ModalError))
+            {
+                <div class="panel alert-panel" style="margin-bottom:1rem"><p>@ModalError</p></div>
+            }
+
+            <div class="form-stack">
+                <div>
+                    <label class="field-label" for="preset-name">Name</label>
+                    <input id="preset-name" class="input" @bind="EditingPreset!.Name" placeholder="My portrait style" />
+                </div>
+                <div>
+                    <label class="field-label" for="preset-prompt">Prompt</label>
+                    <textarea id="preset-prompt" class="input textarea" @bind="EditingPreset!.Prompt"></textarea>
+                </div>
+                <div>
+                    <label class="field-label" for="preset-neg">Negative prompt</label>
+                    <textarea id="preset-neg" class="input textarea input-muted" @bind="EditingPreset!.NegativePrompt"></textarea>
+                </div>
+                <div>
+                    <label class="field-label" for="preset-tags">Tags <span class="field-hint" style="display:inline">(comma-separated)</span></label>
+                    <input id="preset-tags" class="input" @bind="EditingPreset!.Tags" placeholder="portrait, realistic, v2" />
+                </div>
+                <div>
+                    <label class="field-label" for="preset-image">Reference image (optional)</label>
+                    <InputFile id="preset-image" OnChange="HandleThumbnailSelectedAsync" accept=".png,.jpg,.jpeg,.webp,image/*" />
+                    @if (!string.IsNullOrWhiteSpace(PendingImageFileName))
+                    {
+                        <p class="upload-chip">@PendingImageFileName</p>
+                    }
+                </div>
+            </div>
+
+            <div class="form-actions" style="margin-top:1.5rem">
+                <button id="btn-save-preset" class="action-button" disabled="@IsSaving" @onclick="SaveAsync">
+                    @(IsSaving ? "Saving…" : "Save preset")
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private List<PromptPreset> Presets { get; set; } = [];
+    private string TagFilter { get; set; } = string.Empty;
+    private bool IsLoading { get; set; } = true;
+    private bool ModalOpen { get; set; }
+    private bool IsSaving { get; set; }
+    private bool IsCloning { get; set; }
+    private string? ModalError { get; set; }
+    private PromptPreset? EditingPreset { get; set; }
+    private Guid? DeleteConfirmId { get; set; }
+    private string? PendingImageFileName { get; set; }
+    private byte[]? PendingImageBytes { get; set; }
+    private string? PendingImageContentType { get; set; }
+
+    [Inject] private IWebHostEnvironment Env { get; set; } = null!;
+
+    protected override async Task OnInitializedAsync() => await LoadPresetsAsync();
+
+    private async Task LoadPresetsAsync()
+    {
+        IsLoading = true;
+        Presets = await PromptService.GetAllAsync(TagFilter);
+        IsLoading = false;
+    }
+
+    private Task ClearFilter()
+    {
+        TagFilter = string.Empty;
+        return LoadPresetsAsync();
+    }
+
+    private void OpenNew()
+    {
+        EditingPreset = new PromptPreset { Id = Guid.Empty };
+        PendingImageFileName = null;
+        PendingImageBytes = null;
+        ModalError = null;
+        IsCloning = false;
+        ModalOpen = true;
+    }
+
+    /// <summary>Open the modal pre-filled with a copy; saving will create a new record.</summary>
+    private void OpenClone(PromptPreset source)
+    {
+        EditingPreset = new PromptPreset
+        {
+            Id = Guid.Empty,                                  // ensures AddAsync is called
+            Name = $"{source.Name} (copy)",
+            Prompt = source.Prompt,
+            NegativePrompt = source.NegativePrompt,
+            Tags = source.Tags,
+            ImagePath = source.ImagePath,                     // share the same thumbnail
+        };
+        PendingImageFileName = null;
+        PendingImageBytes = null;
+        ModalError = null;
+        IsCloning = true;
+        ModalOpen = true;
+    }
+
+    private void OpenEdit(PromptPreset preset)
+    {
+        EditingPreset = new PromptPreset
+        {
+            Id = preset.Id,
+            Name = preset.Name,
+            Prompt = preset.Prompt,
+            NegativePrompt = preset.NegativePrompt,
+            Tags = preset.Tags,
+            ImagePath = preset.ImagePath,
+            CreatedAt = preset.CreatedAt,
+            LastUsedAt = preset.LastUsedAt
+        };
+        PendingImageFileName = null;
+        PendingImageBytes = null;
+        ModalError = null;
+        IsCloning = false;
+        ModalOpen = true;
+    }
+
+    private void CloseModal()
+    {
+        ModalOpen = false;
+        IsCloning = false;
+        EditingPreset = null;
+    }
+
+    private async Task HandleThumbnailSelectedAsync(InputFileChangeEventArgs args)
+    {
+        const long MaxSize = 10 * 1024 * 1024;
+        var file = args.File;
+        await using var stream = file.OpenReadStream(MaxSize);
+        using var ms = new MemoryStream();
+        await stream.CopyToAsync(ms);
+        PendingImageBytes = ms.ToArray();
+        PendingImageFileName = file.Name;
+        PendingImageContentType = file.ContentType;
+    }
+
+    private async Task SaveAsync()
+    {
+        if (EditingPreset is null) return;
+        if (string.IsNullOrWhiteSpace(EditingPreset.Name))
+        {
+            ModalError = "Name is required.";
+            return;
+        }
+        if (string.IsNullOrWhiteSpace(EditingPreset.Prompt))
+        {
+            ModalError = "Prompt is required.";
+            return;
+        }
+
+        IsSaving = true;
+        ModalError = null;
+
+        try
+        {
+            if (PendingImageBytes is not null && PendingImageFileName is not null)
+            {
+                await using var ms = new MemoryStream(PendingImageBytes, writable: false);
+                EditingPreset.ImagePath = await PromptService.SavePresetImageAsync(
+                    ms, PendingImageFileName, Env.ContentRootPath);
+            }
+
+            if (EditingPreset.Id == Guid.Empty)
+                await PromptService.AddAsync(EditingPreset);
+            else
+                await PromptService.UpdateAsync(EditingPreset);
+
+            ModalOpen = false;
+            await LoadPresetsAsync();
+        }
+        catch (Exception ex)
+        {
+            ModalError = ex.Message;
+        }
+        finally
+        {
+            IsSaving = false;
+        }
+    }
+
+    private void RequestDelete(Guid id) => DeleteConfirmId = id;
+    private void CancelDelete() => DeleteConfirmId = null;
+
+    private async Task ConfirmDeleteAsync(Guid id)
+    {
+        await PromptService.DeleteAsync(id);
+        DeleteConfirmId = null;
+        await LoadPresetsAsync();
+    }
+
+    private static string Truncate(string text, int max) =>
+        text.Length <= max ? text : text[..max] + "…";
+}

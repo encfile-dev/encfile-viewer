@@ -1,0 +1,185 @@
+@page "/batch/monitor"
+@rendermode InteractiveServer
+
+@implements IDisposable
+@inject BatchService BatchService
+
+<PageTitle>Batch Monitor</PageTitle>
+
+<div class="dashboard-shell">
+    <div class="dashboard-main">
+        <div class="panel">
+            <div class="panel-header">
+                <div>
+                    <p class="eyebrow">Processing</p>
+                    <h1>Batch Monitor</h1>
+                </div>
+                <button class="secondary-button" @onclick="RefreshAsync">Refresh</button>
+            </div>
+            <p class="gallery-copy">Real-time status of all batch jobs. Running jobs update automatically every 3 seconds.</p>
+        </div>
+
+        @if (IsLoading)
+        {
+            <div class="panel"><div class="empty-state"><p>Loading…</p></div></div>
+        }
+        else if (Jobs.Count == 0)
+        {
+            <div class="panel">
+                <div class="empty-state">
+                    <p>No batch jobs yet. <a href="/batch">Build one →</a></p>
+                </div>
+            </div>
+        }
+        else
+        {
+            @foreach (var job in Jobs)
+            {
+                <div class="panel" id="job-@job.Id">
+                    <div class="panel-header">
+                        <div>
+                            <p class="eyebrow">@job.Status</p>
+                            <h2>@(string.IsNullOrWhiteSpace(job.Name) ? "Unnamed batch" : job.Name)</h2>
+                        </div>
+                        <div style="display:flex;gap:.75rem;align-items:center;flex-wrap:wrap">
+                            <span class="status-pill status-@job.Status.ToLower()">
+                                @CompletedCount(job) / @job.TotalItems done
+                            </span>
+                            @if (job.Status == "Completed" || job.Status == "Failed")
+                            {
+                                <button class="secondary-button" @onclick="() => DeleteJobAsync(job.Id)">Delete</button>
+                            }
+                        </div>
+                    </div>
+
+                    @* Job progress rail *@
+                    @if (job.TotalItems > 0)
+                    {
+                        var pct = (double)CompletedCount(job) / job.TotalItems * 100;
+                        <div class="progress-rail" style="margin-bottom:1rem">
+                            <div class="progress-bar @(job.Status == "Failed" ? "progress-bar-failed" : "")"
+                                 style="width:@pct.ToString("F1")%"></div>
+                        </div>
+                    }
+
+                    <div class="batch-items-list">
+                        @foreach (var item in job.Items.OrderBy(i => i.Order))
+                        {
+                            <div class="batch-item-row" id="item-@item.Id">
+                                <span class="batch-order-badge batch-order-@item.Status.ToLower()">@(item.Order + 1)</span>
+                                <div class="batch-item-body">
+                                    <strong>@(item.PromptPreset?.Name ?? item.PromptPresetId.ToString()[..8])</strong>
+                                    <span class="batch-item-status status-chip-@item.Status.ToLower()">@item.Status</span>
+                                    @if (!string.IsNullOrWhiteSpace(item.Error))
+                                    {
+                                        <p class="job-error">@item.Error</p>
+                                    }
+                                    @if (item.OutputFiles.Count > 0)
+                                    {
+                                        <div class="item-outputs">
+                                            @foreach (var file in item.OutputFiles)
+                                            {
+                                                <a class="output-chip" href="/images/@Uri.EscapeDataString(file)" target="_blank">@file</a>
+                                            }
+                                        </div>
+                                    }
+                                </div>
+                                <span class="batch-item-meta">
+                                    @if (item.StartedAt.HasValue)
+                                    {
+                                        @item.StartedAt.Value.ToLocalTime().ToString("HH:mm:ss")
+                                    }
+                                </span>
+                            </div>
+                        }
+                    </div>
+
+                    <div class="job-meta" style="margin-top:.75rem">
+                        <span>Created @job.CreatedAt.ToLocalTime().ToString("g")</span>
+                        @if (job.CompletedAt.HasValue)
+                        {
+                            <span>Finished @job.CompletedAt.Value.ToLocalTime().ToString("g")</span>
+                        }
+                    </div>
+                </div>
+            }
+        }
+    </div>
+
+    <div class="dashboard-side">
+        <div class="panel stat-panel">
+            <p class="eyebrow">Quick links</p>
+            <h2>Navigation</h2>
+            <div style="display:grid;gap:.75rem;margin-top:.75rem">
+                <a class="secondary-link" href="/batch">← Build new batch</a>
+                <a class="secondary-link" href="/prompts">Manage presets</a>
+                <a class="secondary-link" href="/gallery">Gallery</a>
+            </div>
+        </div>
+
+        <div class="panel stat-panel">
+            <p class="eyebrow">Summary</p>
+            <h2>Stats</h2>
+            <div style="margin-top:.75rem;display:grid;gap:.4rem">
+                <p>Total jobs: <strong>@Jobs.Count</strong></p>
+                <p>Running: <strong>@Jobs.Count(j => j.Status == "Running")</strong></p>
+                <p>Completed: <strong>@Jobs.Count(j => j.Status == "Completed")</strong></p>
+                <p>Failed: <strong>@Jobs.Count(j => j.Status == "Failed")</strong></p>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<BatchJob> Jobs { get; set; } = [];
+    private bool IsLoading { get; set; } = true;
+    private CancellationTokenSource? _cts;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await RefreshAsync();
+        StartPolling();
+    }
+
+    private async Task RefreshAsync()
+    {
+        IsLoading = true;
+        Jobs = await BatchService.GetRecentJobsAsync();
+        IsLoading = false;
+    }
+
+    private void StartPolling()
+    {
+        _cts = new CancellationTokenSource();
+        _ = PollAsync(_cts.Token);
+    }
+
+    private async Task PollAsync(CancellationToken cancellationToken)
+    {
+        using var timer = new PeriodicTimer(TimeSpan.FromSeconds(3));
+        try
+        {
+            while (await timer.WaitForNextTickAsync(cancellationToken))
+            {
+                Jobs = await BatchService.GetRecentJobsAsync(cancellationToken: cancellationToken);
+                await InvokeAsync(StateHasChanged);
+            }
+        }
+        catch (OperationCanceledException) { }
+    }
+
+    private async Task DeleteJobAsync(Guid jobId)
+    {
+        await BatchService.DeleteJobAsync(jobId);
+        await RefreshAsync();
+    }
+
+    private static int CompletedCount(BatchJob job) =>
+        job.Items.Count(i => i.Status is "Completed" or "Failed");
+
+    public void Dispose()
+    {
+        _cts?.Cancel();
+        _cts?.Dispose();
+    }
+}
