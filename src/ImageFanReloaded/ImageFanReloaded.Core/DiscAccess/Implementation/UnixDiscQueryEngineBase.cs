@@ -1,0 +1,38 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using ImageFanReloaded.Core.ImageHandling.Factories;
+using ImageFanReloaded.Core.Settings;
+using ImageFanReloaded.Core.TextHandling.Implementation;
+
+namespace ImageFanReloaded.Core.DiscAccess.Implementation;
+
+public abstract class UnixDiscQueryEngineBase : DiscQueryEngineBase
+{
+	protected UnixDiscQueryEngineBase(
+		IGlobalParameters globalParameters, IImageFileFactory imageFileFactory)
+			: base(globalParameters, imageFileFactory)
+	{
+		_nameComparison = globalParameters.NameComparer.ToStringComparison();
+	}
+
+	protected override bool IsSupportedDrive(string driveName)
+	{
+		if (driveName.Equals(RootPath, _nameComparison))
+		{
+			return true;
+		}
+
+		var isSupportedDrive = SupportedDrivePrefixes.Any(
+			aSupportedDrivePrefix => driveName.StartsWith(
+				aSupportedDrivePrefix, _nameComparison));
+
+		return isSupportedDrive;
+	}
+
+	protected abstract IReadOnlyList<string> SupportedDrivePrefixes { get; }
+
+	private const string RootPath = "/";
+
+	private readonly StringComparison _nameComparison;
+}

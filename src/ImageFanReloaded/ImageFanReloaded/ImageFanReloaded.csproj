@@ -1,0 +1,43 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<OutputType>WinExe</OutputType>
+		<ApplicationIcon>ApplicationIcon.ico</ApplicationIcon>
+		<Title>ImageFan Reloaded</Title>
+		<Product>ImageFan Reloaded</Product>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<AvaloniaResource Include="MainWindowIcon.ico" />
+		<EmbeddedResource Update="Properties\Resources.resx">
+			<Generator>ResXFileCodeGenerator</Generator>
+			<LastGenOutput>Resources.Designer.cs</LastGenOutput>
+		</EmbeddedResource>
+		<Resource Include="ApplicationIcon.ico">
+			<CopyToOutputDirectory>Never</CopyToOutputDirectory>
+		</Resource>
+	</ItemGroup>
+
+	<ItemGroup>
+		<Compile Update="Properties\Resources.Designer.cs">
+			<DesignTime>True</DesignTime>
+			<AutoGen>True</AutoGen>
+			<DependentUpon>Resources.resx</DependentUpon>
+		</Compile>
+	</ItemGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="../ImageFanReloaded.Caching/ImageFanReloaded.Caching.csproj" />
+		<ProjectReference Include="../ImageFanReloaded.Core/ImageFanReloaded.Core.csproj" />
+	</ItemGroup>
+
+	<ItemGroup>
+	  <PackageReference Include="Avalonia" />
+	  <PackageReference Include="Avalonia.Desktop" />
+	  <PackageReference Include="Avalonia.Fonts.Inter" />
+	  <PackageReference Include="Avalonia.Themes.Fluent" />
+	  <PackageReference Include="Magick.NET-Q8-AnyCPU" />
+	  <PackageReference Include="Tmds.DBus.Protocol" />
+	</ItemGroup>
+
+</Project>

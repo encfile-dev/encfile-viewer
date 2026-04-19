@@ -1,0 +1,18 @@
+using System;
+using ImageFanReloaded.Core.Controls;
+using ImageFanReloaded.Core.DiscAccess;
+
+namespace ImageFanReloaded.Core.CustomEventArgs;
+
+public class FolderOrderingChangedEventArgs : EventArgs
+{
+	public FolderOrderingChangedEventArgs(
+		IContentTabItem contentTabItem, FileSystemEntryInfo fileSystemEntryInfo)
+	{
+		ContentTabItem = contentTabItem;
+		FileSystemEntryInfo = fileSystemEntryInfo;
+	}
+
+	public IContentTabItem ContentTabItem { get; }
+	public FileSystemEntryInfo FileSystemEntryInfo { get; }
+}

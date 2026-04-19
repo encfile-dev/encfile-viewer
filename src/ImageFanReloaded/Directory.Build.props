@@ -1,0 +1,12 @@
+<Project>
+
+	<PropertyGroup>
+		<TargetFramework>net10.0</TargetFramework>
+		<ImplicitUsings>disable</ImplicitUsings>
+		<Nullable>enable</Nullable>
+		<Copyright>Copyright © encfile-dev 2026 - 2030</Copyright>
+		<AssemblyVersion>1.2026.04.20</AssemblyVersion>
+		<Version>$(AssemblyVersion)</Version>
+	</PropertyGroup>
+
+</Project>

@@ -1,0 +1,517 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<component type="desktop-application">
+
+	<id>io.github.mihnea_radulescu.imagefanreloaded</id>
+
+	<name>ImageFan Reloaded</name>
+	<summary>Feature-rich, tab-based image viewer, supporting multi-core processing</summary>
+
+	<developer id="io.github.mihnea_radulescu">
+		<name>Mihnea Rădulescu</name>
+	</developer>
+	<content_rating type="oars-1.1" />
+
+	<metadata_license>CC0-1.0</metadata_license>
+	<project_license>GPL-3.0-or-later</project_license>
+
+	<description>
+		<p>ImageFan Reloaded is a fast and easy-to-use image viewer with broad format support for everyday photo browsing and management.</p>
+		<p>Features:</p>
+		<ul>
+			<li>quick concurrent thumbnail generation, scaling to the number of processor cores present</li>
+			<li>support for multiple folder tabs</li>
+			<li>keyboard and mouse user interaction</li>
+			<li>dark and light modes, based on system settings</li>
+			<li>45 supported image formats: avif, bmp, cr2, cur, dds, dng, exr, fts, gif, hdr, heic, heif, ico, jfif, jp2, jpe/jpeg/jpg, jps, mng, nef, nrw, orf, pam, pbm, pcd, pcx, pef, pes, pfm, pgm, picon, pict, png, ppm, psd, qoi, raf, rw2, sgi, svg, tga, tif/tiff, wbmp, webp, xbm, xpm</li>
+			<li>image animation support for the formats: avif, gif, mng, webp</li>
+			<li>fast and seamless full-screen and windowed navigation across images</li>
+			<li>image editing capabilities, with undo support: rotate, flip, effects, save in various formats, crop and downsize</li>
+			<li>folder and image file ordering by name, last modification time and random shuffle, ascending and descending</li>
+			<li>configurable thumbnail size, between 100 and 1200 pixels</li>
+			<li>thumbnail caching capability for fast folder browsing</li>
+			<li>slideshow navigation across images</li>
+			<li>image info containing file, image, color, EXIF, IPTC and XMP profiles</li>
+			<li>automatic image orientation according to the EXIF orientation tag</li>
+			<li>toggle-able recursive folder browsing</li>
+			<li>targeted zooming in, and moving over the zoomed image</li>
+		</ul>
+	</description>
+
+	<launchable type="desktop-id">io.github.mihnea_radulescu.imagefanreloaded.desktop</launchable>
+
+	<screenshots>
+		<screenshot type="default">
+			<image>https://raw.githubusercontent.com/mihnea-radulescu/imagefanreloaded/main/Screenshot-MainDark.jpg</image>
+			<caption>Main view - dark mode</caption>
+		</screenshot>
+		<screenshot>
+			<image>https://raw.githubusercontent.com/mihnea-radulescu/imagefanreloaded/main/Screenshot-MainLight.jpg</image>
+			<caption>Main view - light mode</caption>
+		</screenshot>
+		<screenshot>
+			<image>https://raw.githubusercontent.com/mihnea-radulescu/imagefanreloaded/main/Screenshot-MainRecursiveFolderBrowsing.jpg</image>
+			<caption>Main view - recursive folder browsing</caption>
+		</screenshot>
+		<screenshot>
+			<image>https://raw.githubusercontent.com/mihnea-radulescu/imagefanreloaded/main/Screenshot-ImageEdit.jpg</image>
+			<caption>Image edit view</caption>
+		</screenshot>
+		<screenshot>
+			<image>https://raw.githubusercontent.com/mihnea-radulescu/imagefanreloaded/main/Screenshot-TabOptions.jpg</image>
+			<caption>Tab options view</caption>
+		</screenshot>
+	</screenshots>
+
+	<url type="homepage">https://github.com/mihnea-radulescu/imagefanreloaded</url>
+	<url type="bugtracker">https://github.com/mihnea-radulescu/imagefanreloaded/issues</url>
+	<url type="vcs-browser">https://github.com/mihnea-radulescu</url>
+
+	<releases>
+		<release version="1.2026.04.20" date="2026-04-20">
+			<description>
+				<p>Added AVIF image format animation support</p>
+			</description>
+		</release>
+		<release version="1.2026.04.17" date="2026-04-17">
+			<description>
+				<ul>
+					<li>Added support for the AVIF image format</li>
+					<li>Updated application framework and libraries</li>
+				</ul>
+			</description>
+		</release>
+		<release version="1.2026.04.10" date="2026-04-10">
+			<description>
+				<ul>
+					<li>Changed message boxes implementation</li>
+					<li>Updated application libraries</li>
+				</ul>
+			</description>
+		</release>
+		<release version="1.2026.03.31" date="2026-03-31">
+			<description>
+				<p>Added tab option: select enabled image file extensions</p>
+			</description>
+		</release>
+		<release version="1.2026.03.28" date="2026-03-28">
+			<description>
+				<ul>
+					<li>Updated thumbnail caching logic</li>
+					<li>Extended slideshow interval options</li>
+					<li>Updated application framework and libraries</li>
+				</ul>
+			</description>
+		</release>
+		<release version="1.2026.02.26" date="2026-02-26">
+			<description>
+				<ul>
+					<li>Fixed key binding logic</li>
+					<li>Updated application libraries</li>
+				</ul>
+			</description>
+		</release>
+		<release version="1.2026.02.15" date="2026-02-15">
+			<description>
+				<ul>
+					<li>Improved thumbnail cache file change identification</li>
+					<li>Updated application libraries</li>
+				</ul>
+			</description>
+		</release>
+		<release version="1.2026.02.11" date="2026-02-11">
+			<description>
+				<ul>
+					<li>Optimized recursive folder browsing refresh</li>
+					<li>Improved async calls performance</li>
+					<li>Updated application framework</li>
+				</ul>
+			</description>
+		</release>
+		<release version="1.2026.02.03" date="2026-02-03">
+			<description>
+				<ul>
+					<li>Added thumbnail caching support</li>
+					<li>Updated application framework and libraries</li>
+				</ul>
+			</description>
+		</release>
+		<release version="1.2026.01.04" date="2026-01-04">
+			<description>
+				<p>Added image info text to the windowed maximized borderless view</p>
+			</description>
+		</release>
+		<release version="1.2026.01.03" date="2026-01-03">
+			<description>
+				<p>Added windowed maximized borderless image view mode</p>
+			</description>
+		</release>
+		<release version="1.2025.12.31" date="2025-12-31">
+			<description>
+				<p>Added tab option: full-screen images upsizing up to screen size</p>
+			</description>
+		</release>
+		<release version="1.2025.11.20" date="2025-11-20">
+			<description>
+				<ul>
+					<li>Improved image resource disposal after use</li>
+					<li>Updated application libraries</li>
+				</ul>
+			</description>
+		</release>
+		<release version="1.2025.11.12" date="2025-11-12">
+			<description>
+				<ul>
+					<li>Updated framework and libraries</li>
+					<li>Improved startup time and reduced disc size for the x64 architecture</li>
+				</ul>
+			</description>
+		</release>
+		<release version="1.2025.10.20" date="2025-10-20">
+			<description>
+				<p>Improved recursive folder path identification</p>
+			</description>
+		</release>
+		<release version="1.2025.10.19" date="2025-10-19">
+			<description>
+				<ul>
+					<li>Fixed folder path mapping issue</li>
+					<li>Updated application libraries</li>
+				</ul>
+			</description>
+		</release>
+		<release version="1.2025.10.17" date="2025-10-17">
+			<description>
+				<ul>
+					<li>Remapped ordering and ordering direction keys</li>
+					<li>Updated application framework</li>
+				</ul>
+			</description>
+		</release>
+		<release version="1.2025.10.16" date="2025-10-16">
+			<description>
+				<p>Added tab option: apply ordering globally for recursive folder browsing</p>
+			</description>
+		</release>
+		<release version="1.2025.10.12" date="2025-10-12">
+			<description>
+				<p>Improved visual styling</p>
+			</description>
+		</release>
+		<release version="1.2025.10.11" date="2025-10-11">
+			<description>
+				<p>Improved performance around image reading and thumbnail generation</p>
+			</description>
+		</release>
+		<release version="1.2025.10.10" date="2025-10-10">
+			<description>
+				<ul>
+					<li>Added navigation keys Backspace and Space</li>
+					<li>Optimized image loading from disc and displaying on screen</li>
+					<li>Added random shuffle as folder and image file ordering option</li>
+				</ul>
+			</description>
+		</release>
+		<release version="1.2025.09.19" date="2025-09-19">
+			<description>
+				<ul>
+					<li>Improved image editing crop function</li>
+					<li>Updated application framework and libraries</li>
+					<li>Updated Freedesktop SDK runtime</li>
+				</ul>
+			</description>
+		</release>
+		<release version="1.2025.08.31" date="2025-08-31">
+			<description>
+				<ul>
+					<li>Updated text info controls (contribution by rabbitism)</li>
+					<li>Added contrast and gamma image editing effects</li>
+				</ul>
+			</description>
+		</release>
+		<release version="1.2025.08.26" date="2025-08-26">
+			<description>
+				<p>Fixed post-edit thumbnail refresh issue</p>
+			</description>
+		</release>
+		<release version="1.2025.08.23" date="2025-08-23">
+			<description>
+				<p>Fixed slideshow initial delay issue</p>
+			</description>
+		</release>
+		<release version="1.2025.08.22" date="2025-08-22">
+			<description>
+				<p>Added tab option: keyboard scroll image increment</p>
+			</description>
+		</release>
+		<release version="1.2025.08.16" date="2025-08-16">
+			<description>
+				<p>Updated application framework and libraries</p>
+			</description>
+		</release>
+		<release version="1.2025.08.04" date="2025-08-04">
+			<description>
+				<p>Added windowed image view display mode</p>
+			</description>
+		</release>
+		<release version="1.2025.08.02" date="2025-08-02">
+			<description>
+				<p>Fixed folder refresh issue after saving an edited image</p>
+			</description>
+		</release>
+		<release version="1.2025.08.01" date="2025-08-01">
+			<description>
+				<ul>
+					<li>Improved thumbnail updating and invalid image handling</li>
+					<li>Enhanced image info and image edit responsiveness</li>
+				</ul>
+			</description>
+		</release>
+		<release version="1.2025.07.30" date="2025-07-30">
+			<description>
+				<p>Bug fix: minor invalid image info refresh</p>
+			</description>
+		</release>
+		<release version="1.2025.07.28" date="2025-07-28">
+			<description>
+				<p>Added tab option: image file ordering and ordering direction</p>
+			</description>
+		</release>
+		<release version="1.2025.07.23" date="2025-07-23">
+			<description>
+				<p>Added tab option: show thumbnail image file name</p>
+			</description>
+		</release>
+		<release version="1.2025.07.22" date="2025-07-22">
+			<description>
+				<p>Expanded thumbnail size selection to the range of 100 to 1200 pixels</p>
+			</description>
+		</release>
+		<release version="1.2025.07.20" date="2025-07-20">
+			<description>
+				<p>Improvements around image editing and image save logic</p>
+			</description>
+		</release>
+		<release version="1.2025.07.19" date="2025-07-19">
+			<description>
+				<p>Implemented integer and fractional screen scaling</p>
+			</description>
+		</release>
+		<release version="1.2025.07.18" date="2025-07-18">
+			<description>
+				<p>Added image editing capabilities</p>
+			</description>
+		</release>
+		<release version="1.2025.07.07" date="2025-07-07">
+			<description>
+				<p>Added image animation support for the formats gif, mng and webp</p>
+			</description>
+		</release>
+		<release version="1.2025.06.25" date="2025-06-25">
+			<description>
+				<p>Updated image orientation logic and application libraries</p>
+			</description>
+		</release>
+		<release version="1.2025.06.24" date="2025-06-24">
+			<description>
+				<p>Expanded supported image formats, and enhanced image info content</p>
+			</description>
+		</release>
+		<release version="1.2025.06.22" date="2025-06-22">
+			<description>
+				<p>Optimized EXIF image orientation handling</p>
+			</description>
+		</release>
+		<release version="1.2025.06.20" date="2025-06-20">
+			<description>
+				<p>Added support for pbm, qoi, tga and tiff image formats, EXIF and IPTC metadata, and EXIF image orientation</p>
+			</description>
+		</release>
+		<release version="1.2025.06.16" date="2025-06-16">
+			<description>
+				<p>Added slideshow support</p>
+			</description>
+		</release>
+		<release version="1.2025.06.10" date="2025-06-10">
+			<description>
+				<p>Added tab options persistence</p>
+			</description>
+		</release>
+		<release version="1.2025.02.17" date="2025-02-17">
+			<description>
+				<p>Improved thumbnail generation performance</p>
+			</description>
+		</release>
+		<release version="1.2024.10.01" date="2024-10-02">
+			<description>
+				<p>Improved flatpak format compliance</p>
+			</description>
+		</release>
+		<release version="1.2024.10.01" date="2024-10-01">
+			<description>
+				<p>Added tab options</p>
+			</description>
+		</release>
+		<release version="1.2024.09.22" date="2024-09-22">
+			<description>
+				<p>Added support for folder ordering</p>
+			</description>
+		</release>
+		<release version="1.2024.09.06" date="2024-09-06">
+			<description>
+				<p>Made thumbnail size configurable</p>
+			</description>
+		</release>
+		<release version="1.2024.08.14" date="2024-08-14">
+			<description>
+				<p>Updated application libraries</p>
+			</description>
+		</release>
+		<release version="1.2024.08.05" date="2024-08-05">
+			<description>
+				<p>Improved application navigation</p>
+			</description>
+		</release>
+		<release version="1.2024.07.30" date="2024-07-30">
+			<description>
+				<p>Improved thumbnail scrolling</p>
+			</description>
+		</release>
+		<release version="1.2024.07.18" date="2024-07-18">
+			<description>
+				<p>Added full keyboard navigation support</p>
+			</description>
+		</release>
+		<release version="1.2024.07.02" date="2024-07-02">
+			<description>
+				<p>Enabled persistent recursive folder access</p>
+			</description>
+		</release>
+		<release version="1.2024.06.15" date="2024-06-15">
+			<description>
+				<p>Added recursive folder image browsing</p>
+			</description>
+		</release>
+		<release version="1.2024.06.01" date="2024-06-01">
+			<description>
+				<p>Optimized access to thumbnails, and added image info display toggle</p>
+			</description>
+		</release>
+		<release version="1.2024.05.25" date="2024-05-25">
+			<description>
+				<p>Improved thumbnail and image navigation</p>
+			</description>
+		</release>
+		<release version="1.2024.05.10" date="2024-05-10">
+			<description>
+				<p>Updated application icons, and extended supported image formats</p>
+			</description>
+		</release>
+		<release version="1.2024.05.05" date="2024-05-05">
+			<description>
+				<p>Updated disc drives identification using Flatpak</p>
+			</description>
+		</release>
+		<release version="1.2024.05.04" date="2024-05-05">
+			<description>
+				<p>Improved application performance</p>
+			</description>
+		</release>
+		<release version="1.2024.03.08" date="2024-03-08">
+			<description>
+				<p>Updated application libraries</p>
+			</description>
+		</release>
+		<release version="1.2024.02.25" date="2024-02-25">
+			<description>
+				<p>Improved folder and thumbnail navigation</p>
+			</description>
+		</release>
+		<release version="1.2024.02.23" date="2024-02-23">
+			<description>
+				<p>Implemented close tab feature, and added image status bar</p>
+			</description>
+		</release>
+		<release version="1.2024.02.18" date="2024-02-18">
+			<description>
+				<p>Added information status bar</p>
+			</description>
+		</release>
+		<release version="1.2024.02.12" date="2024-02-12">
+			<description>
+				<p>Updated application libraries</p>
+			</description>
+		</release>
+		<release version="1.2024.02.04" date="2024-02-04">
+			<description>
+				<p>Added natural sort order for folders and files</p>
+			</description>
+		</release>
+		<release version="1.2024.01.29" date="2024-01-29">
+			<description>
+				<p>Improved folder access experience</p>
+			</description>
+		</release>
+		<release version="1.2024.01.28" date="2024-01-28">
+			<description>
+				<p>Improved application startup performance</p>
+			</description>
+		</release>
+		<release version="1.2024.01.22" date="2024-01-22">
+			<description>
+				<p>Added keyboard keys support</p>
+			</description>
+		</release>
+		<release version="1.2024.01.17" date="2024-01-17">
+			<description>
+				<p>Updated application libraries</p>
+			</description>
+		</release>
+		<release version="1.2024.01.16" date="2024-01-16">
+			<description>
+				<p>Further optimized application memory usage</p>
+			</description>
+		</release>
+		<release version="1.2024.01.15" date="2024-01-15">
+			<description>
+				<p>Improved application memory management</p>
+			</description>
+		</release>
+		<release version="1.2023.12.12" date="2023-12-12">
+			<description>
+				<p>Updated tab-based navigation and application libraries</p>
+			</description>
+		</release>
+		<release version="1.2023.12.01" date="2023-12-01">
+			<description>
+				<p>Updated runtime, main framework and libraries</p>
+			</description>
+		</release>
+		<release version="1.2023.10.09" date="2023-10-09">
+			<description>
+				<p>Updated application libraries</p>
+			</description>
+		</release>
+		<release version="1.2023.10.08" date="2023-10-08">
+			<description>
+				<p>Fixed an image display and scrolling issue</p>
+			</description>
+		</release>
+		<release version="1.2023.10.01" date="2023-10-01">
+			<description>
+				<p>Added tab support and made minor improvements</p>
+			</description>
+		</release>
+		<release version="1.2023.09.07" date="2023-09-08">
+			<description>
+				<p>Fixed minor scrolling bug when viewing zoomed images</p>
+			</description>
+		</release>
+		<release version="1.2023.08.28" date="2023-08-29">
+			<description>
+				<p>Initial Flatpak release</p>
+			</description>
+		</release>
+	</releases>
+
+</component>

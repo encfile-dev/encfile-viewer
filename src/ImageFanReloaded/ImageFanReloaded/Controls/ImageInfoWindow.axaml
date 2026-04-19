@@ -1,0 +1,19 @@
+<Window xmlns="https://github.com/avaloniaui"
+		xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+		x:Class="ImageFanReloaded.Controls.ImageInfoWindow"
+		Icon="/MainWindowIcon.ico"
+		Width="800"
+		Height="600"
+		WindowStartupLocation="CenterOwner"
+		CanMinimize="False"
+		CanResize="False"
+		CanMaximize="False"
+		Loaded="OnWindowLoaded"
+		Closing="OnWindowClosing">
+	<ScrollViewer Name="_imageInfoScrollViewer"
+				  HorizontalScrollBarVisibility="Auto"
+				  VerticalScrollBarVisibility="Auto">
+		<SelectableTextBlock Name="_imageInfoSelectableTextBlock"
+							 Background="Transparent"/>
+	</ScrollViewer>
+</Window>

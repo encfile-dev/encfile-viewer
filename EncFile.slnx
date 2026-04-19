@@ -1,4 +1,10 @@
 <Solution>
+  <Folder Name="/ImageFanReloaded/">
+    <Project Path="src/ImageFanReloaded/ImageFanReloaded.Caching/ImageFanReloaded.Caching.csproj" />
+    <Project Path="src/ImageFanReloaded/ImageFanReloaded.Core/ImageFanReloaded.Core.csproj" />
+    <Project Path="src/ImageFanReloaded/ImageFanReloaded.Test/ImageFanReloaded.Test.csproj" />
+    <Project Path="src/ImageFanReloaded/ImageFanReloaded/ImageFanReloaded.csproj" />
+  </Folder>
   <Project Path="src/EncFile.Cli/EncFile.Cli.csproj" />
   <Project Path="src/EncFile.Lib/EncFile.Lib.csproj" />
 </Solution>

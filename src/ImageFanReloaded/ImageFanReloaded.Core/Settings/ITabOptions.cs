@@ -1,0 +1,34 @@
+using System.Collections.Generic;
+using System.Threading.Tasks;
+
+namespace ImageFanReloaded.Core.Settings;
+
+public interface ITabOptions
+{
+	FileSystemEntryInfoOrdering FolderOrdering { get; set; }
+	FileSystemEntryInfoOrderingDirection FolderOrderingDirection { get; set; }
+
+	FileSystemEntryInfoOrdering ImageFileOrdering { get; set; }
+	FileSystemEntryInfoOrderingDirection ImageFileOrderingDirection
+		{ get; set; }
+
+	ImageViewDisplayMode ImageViewDisplayMode { get; set; }
+
+	int ThumbnailSize { get; set; }
+
+	HashSet<string> EnabledImageFileExtensions { get; set; }
+
+	bool RecursiveFolderBrowsing { get; set; }
+	bool GlobalOrderingForRecursiveFolderBrowsing { get; set; }
+
+	bool ShowImageViewImageInfo { get; set; }
+	int PanelsSplittingRatio { get; set; }
+	decimal SlideshowInterval { get; set; }
+	bool ApplyImageOrientation { get; set; }
+	bool ShowThumbnailImageFileName { get; set; }
+	int KeyboardScrollThumbnailIncrement { get; set; }
+	UpsizeFullScreenImagesUpToScreenSize UpsizeFullScreenImagesUpToScreenSize
+		{ get; set; }
+
+	Task SaveDefaultTabOptions();
+}

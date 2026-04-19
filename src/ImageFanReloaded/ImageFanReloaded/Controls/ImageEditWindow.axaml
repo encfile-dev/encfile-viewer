@@ -1,0 +1,165 @@
+<Window xmlns="https://github.com/avaloniaui"
+		xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+		x:Class="ImageFanReloaded.Controls.ImageEditWindow"
+		Icon="/MainWindowIcon.ico"
+		MinWidth="800"
+		MinHeight="600"
+		Width="800"
+		Height="600"
+		WindowStartupLocation="CenterOwner"
+		WindowState="Maximized"
+		Loaded="OnWindowLoaded"
+		Closing="OnWindowClosing">
+	<Grid RowDefinitions="Auto,Auto,Auto,*">
+		<StackPanel Grid.Row="0"
+		            Classes="HorizontalStackPanel"
+		            HorizontalAlignment="Center">
+			<Button Name="_undoButton"
+					Content="Undo"
+					Click="OnUndo"/>
+
+			<Button Name="_redoButton"
+					Content="Redo"
+					Click="OnRedo"/>
+
+			<DropDownButton Name="_rotateDropDownButton"
+							Content="Rotate">
+				<DropDownButton.Flyout>
+					<MenuFlyout>
+						<MenuItem Header="Left"
+								  Click="OnRotateLeft"/>
+						<MenuItem Header="Right"
+								  Click="OnRotateRight"/>
+					</MenuFlyout>
+				</DropDownButton.Flyout>
+			</DropDownButton>
+
+			<DropDownButton Name="_flipDropDownButton"
+							Content="Flip">
+				<DropDownButton.Flyout>
+					<MenuFlyout>
+						<MenuItem Header="Horizontally"
+								  Click="OnFlipHorizontally"/>
+						<MenuItem Header="Vertically"
+								  Click="OnFlipVertically"/>
+					</MenuFlyout>
+				</DropDownButton.Flyout>
+			</DropDownButton>
+
+			<DropDownButton Name="_effectsDropDownButton"
+							Content="Effects">
+				<DropDownButton.Flyout>
+					<MenuFlyout>
+						<MenuItem Header="Contrast"
+								  Click="OnContrast"/>
+						<MenuItem Header="Gamma"
+								  Click="OnGamma"/>
+						<MenuItem Header="Enhance"
+								  Click="OnEnhance"/>
+						<MenuItem Header="White balance"
+								  Click="OnWhiteBalance"/>
+						<MenuItem Header="Reduce noise"
+								  Click="OnReduceNoise"/>
+						<MenuItem Header="Sharpen"
+								  Click="OnSharpen"/>
+						<MenuItem Header="Blur"
+								  Click="OnBlur"/>
+
+						<MenuItem Header="---"
+								  IsEnabled="False"/>
+
+						<MenuItem Header="Grayscale"
+								  Click="OnGrayscale"/>
+						<MenuItem Header="Sepia"
+								  Click="OnSepia"/>
+						<MenuItem Header="Negative"
+								  Click="OnNegative"/>
+						<MenuItem Header="Oil paint"
+								  Click="OnOilPaint"/>
+						<MenuItem Header="Emboss"
+								  Click="OnEmboss"/>
+					</MenuFlyout>
+				</DropDownButton.Flyout>
+			</DropDownButton>
+
+			<DropDownButton Name="_saveAsDropDownButton"
+							Content="Save as">
+				<DropDownButton.Flyout>
+					<MenuFlyout>
+						<MenuItem Header="Same format"
+								  Click="OnSaveImageAsWithSameFormat"/>
+						<MenuItem Header="JPEG"
+								  Click="OnSaveImageAsWithFormatJpeg"/>
+						<MenuItem Header="GIF"
+								  Click="OnSaveImageAsWithFormatGif"/>
+						<MenuItem Header="PNG"
+								  Click="OnSaveImageAsWithFormatPng"/>
+						<MenuItem Header="WEBP"
+								  Click="OnSaveImageAsWithFormatWebp"/>
+						<MenuItem Header="TIFF"
+								  Click="OnSaveImageAsWithFormatTiff"/>
+						<MenuItem Header="BMP"
+								  Click="OnSaveImageAsWithFormatBmp"/>
+					</MenuFlyout>
+				</DropDownButton.Flyout>
+			</DropDownButton>
+		</StackPanel>
+
+		<StackPanel Grid.Row="1"
+					Classes="HorizontalStackPanel"
+					HorizontalAlignment="Center">
+			<Button Name="_cropButton"
+					Content="Crop"
+					Click="OnCrop"/>
+
+			<CheckBox Name="_snapCropEdgesCheckBox"
+					  Content="Snap crop edges to image border">
+				<ToolTip.Tip>
+					<TextBlock Name="_snapCropEdgesToolTip"/>
+				</ToolTip.Tip>
+			</CheckBox>
+		</StackPanel>
+
+		<StackPanel Grid.Row="2"
+					Classes="HorizontalStackPanel"
+					HorizontalAlignment="Center">
+			<TextBlock VerticalAlignment="Center"
+					   Text="Percentage:"/>
+			<ComboBox Name="_downsizeToPercentageComboBox"
+					  Margin="0 2 0 0"/>
+
+			<DropDownButton Name="_downsizeDropDownButton"
+							Content="Downsize">
+				<DropDownButton.Flyout>
+					<MenuFlyout>
+						<MenuItem Name="_downsizeToPercentageMenuItem"
+								  Header="To percentage"
+								  Click="OnDownsizeToPercentage"/>
+						<MenuItem Name="_downsizeToDimensionsMenuItem"
+								  Header="To dimensions"
+								  Click="OnDownsizeToDimensions"/>
+					</MenuFlyout>
+				</DropDownButton.Flyout>
+			</DropDownButton>
+
+			<TextBlock VerticalAlignment="Center"
+					   Text="Width:"/>
+			<ComboBox Name="_downsizeToDimensionsWidthComboBox"
+					  Margin="0 2 0 0"/>
+			<TextBlock VerticalAlignment="Center"
+					   Text="Height:"/>
+			<ComboBox Name="_downsizeToDimensionsHeightComboBox"
+					  Margin="0 2 0 0"/>
+		</StackPanel>
+
+		<Grid Name="_displayGrid"
+			  Grid.Row="3"
+			  Margin="10 6 10 10">
+			<Image Name="_displayImage"
+				   Stretch="Uniform"
+				   PointerPressed="OnMouseDown"
+				   PointerReleased="OnMouseUp"/>
+			<Canvas Name="_cropOverlayCanvas"/>
+		</Grid>
+	</Grid>
+</Window>
